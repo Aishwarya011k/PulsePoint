@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prober-worker"
+version = "0.1.0"
+description = "PulsePoint Phase 1 Prober Worker - Health check scheduler"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy==2.0.23",
+    "psycopg2-binary==2.9.9",
+    "apscheduler==3.10.4",
+    "httpx==0.25.2",
+    "python-dotenv==1.0.0",
+]

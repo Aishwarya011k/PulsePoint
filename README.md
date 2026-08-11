@@ -6,7 +6,7 @@ PulsePoint monitors your services and predicts failures *before* they happen —
 
 Built as a full production-style DevOps + AI platform: containerized microservices, event-driven architecture, GitOps deployment, full observability stack, and an AI engine that turns telemetry into predictions.
 
-> PulsePoint also monitors itself — the platform runs on the exact same DevOps stack it offers to monitor other services with.
+PulsePoint also monitors itself — the platform runs on the exact same DevOps stack it offers to monitor other services with.
 
 ---
 
@@ -47,6 +47,68 @@ Prometheus + Loki scrape/aggregate everything → Grafana dashboards
 ```
 
 Full architecture write-up with diagrams: [`docs/architecture.md`](docs/architecture.md)
+
+---
+
+##  Quick Start (Local Development)
+
+### Three Independent Services
+
+1. **backend-api/** — FastAPI REST API (Python)
+2. **prober-worker/** — Background health check scheduler (Python)
+3. **frontend/** — React + Vite dashboard (TypeScript)
+
+### Prerequisites
+
+- **PostgreSQL 15+** (local install or `docker run postgres`)
+- **Python 3.11+**
+- **Node.js 18+**
+
+### Run Locally in 3 Terminals
+
+**Terminal 1: Backend API**
+```bash
+cd backend-api
+cp .env.example .env
+pip install -r requirements.txt
+python main.py
+# API runs at http://localhost:8000, docs at http://localhost:8000/docs
+```
+
+**Terminal 2: Prober Worker**
+```bash
+cd prober-worker
+cp .env.example .env
+pip install -r requirements.txt
+python worker.py
+# Checks targets every 60 seconds
+```
+
+**Terminal 3: Frontend**
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+# Dashboard at http://localhost:3000
+```
+
+### First Steps
+
+1. **Register & Login** at http://localhost:3000
+2. **Add a Target** (e.g., `https://httpbin.org/status/200`)
+3. **Wait** for the Prober Worker to pick it up (~60s)
+4. **View Results** in the dashboard
+5. **Check Now** to trigger an immediate health check
+
+### Test It
+
+```bash
+cd backend-api
+pytest test_main.py -v
+```
+
+Full Phase 1 guide: [`docs/phase1.md`](phase1-setup.md) *(coming soon)*
 
 ---
 
