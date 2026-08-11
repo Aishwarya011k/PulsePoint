@@ -23,6 +23,13 @@ wheels/
 .installed.cfg
 *.egg
 
+# Markdown files (except README.md)
+*.md
+!README.md
+
+# Documentation folder
+Documentation/
+
 # Testing
 .pytest_cache/
 .coverage
