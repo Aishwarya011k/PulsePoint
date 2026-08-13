@@ -28,6 +28,8 @@ class Target(Base):
     name = Column(String(255), nullable=False)
     url = Column(String(2048), nullable=False)
     check_interval_seconds = Column(Integer, default=300, nullable=False)
+    public_slug = Column(String(128), unique=True, nullable=True)
+    is_public = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships

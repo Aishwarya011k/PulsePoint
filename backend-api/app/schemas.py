@@ -44,9 +44,55 @@ class TargetResponse(BaseModel):
         from_attributes = True
 
 
+class TimeSeriesPoint(BaseModel):
+    """Schema for a single timeseries point."""
+    timestamp: datetime
+    response_time_ms: float
+    success: bool
+    has_failure: bool
+
+
+class TimeSeriesStats(BaseModel):
+    """Schema for timeseries visualization stats."""
+    uptime_percentage: float
+    avg_response_time_ms: float
+    p95_response_time_ms: float
+    current_status: str
+
+
+class TimeSeriesResponse(BaseModel):
+    """Schema for timeseries response."""
+    points: List[TimeSeriesPoint]
+    stats: TimeSeriesStats
+
+
 class TargetDetailResponse(TargetResponse):
     """Schema for target detail with recent checks."""
     recent_checks: List["CheckResponse"] = []
+    is_public: bool = False
+    public_slug: Optional[str] = None
+
+
+class TargetPublicUpdateRequest(BaseModel):
+    """Schema for toggling a target's public status."""
+    is_public: bool
+
+
+class DailyUptimeHistoryPoint(BaseModel):
+    """Schema for a single uptime history day."""
+    date: str
+    uptime_percentage: float
+    status: str
+
+
+class PublicStatusResponse(BaseModel):
+    """Schema for public target status page data."""
+    name: str
+    current_status: str
+    uptime_last_24h: float
+    uptime_last_7d: float
+    uptime_last_30d: float
+    daily_history: List[DailyUptimeHistoryPoint]
 
 
 # Check schemas
