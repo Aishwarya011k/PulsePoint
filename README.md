@@ -84,6 +84,41 @@ python worker.py
 # Checks targets every 60 seconds
 ```
 
+### Running with Docker (single-machine via Docker Compose)
+
+Prerequisites: Docker and Docker Compose installed locally.
+
+1. Copy or verify service `.env` files (already included for local development):
+
+```bash
+# Optional: inspect defaults
+cat backend-api/.env
+cat prober-worker/.env
+cat frontend/.env
+```
+
+2. Build and start the stack:
+
+```bash
+docker-compose up --build
+```
+
+3. Verify services:
+
+ - Backend API: http://localhost:8000/health
+ - Frontend: http://localhost:3000
+
+4. Tear down and remove volumes when finished:
+
+```bash
+docker-compose down -v
+```
+
+Notes:
+- The frontend image is built with `VITE_API_BASE_URL` set at build time (default points to the `backend-api` service). If you need to change the API host without rebuilding the image, see the project notes — runtime reconfiguration requires a small client-side change.
+- Postgres data is persisted in a named volume `pgdata` created by Compose.
+
+
 **Terminal 3: Frontend**
 ```bash
 cd frontend
