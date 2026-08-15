@@ -1,18 +1,20 @@
-
 services:
   postgres:
     image: postgres:15
     environment:
       POSTGRES_DB: pulsepoint
       POSTGRES_USER: pulse_user
-      POSTGRES_PASSWORD: pulse_password
+      POSTGRES_PASSWORD: aishu
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pulse_user"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - pulsepoint
 
   backend-api:
     build:
@@ -45,7 +47,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: http://backend-api:8000
+        VITE_API_BASE_URL: http://localhost:8000
     env_file:
       - frontend/.env
     ports:
