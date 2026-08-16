@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: pulsepoint
+data:
+  API_PORT: "8000"
+  API_HOST: "0.0.0.0"

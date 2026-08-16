@@ -118,6 +118,40 @@ Notes:
 - The frontend image is built with `VITE_API_BASE_URL` set at build time (default points to the `backend-api` service). If you need to change the API host without rebuilding the image, see the project notes — runtime reconfiguration requires a small client-side change.
 - Postgres data is persisted in a named volume `pgdata` created by Compose.
 
+The following section shows how to run the same stack on a local Kubernetes cluster using `kind`.
+
+### Running with Kubernetes locally (kind)
+
+Prerequisites: `docker`, `kind`, and `kubectl` installed.
+
+1. Build images and bring up a local `kind` cluster, load images, and deploy manifests:
+
+```bash
+./scripts/local-cluster-up.sh
+```
+
+2. Confirm the stack is running:
+
+```bash
+kubectl get pods -n pulsepoint
+kubectl get svc -n pulsepoint
+```
+
+3. Access services:
+
+- Frontend (NodePort): http://localhost:30080
+- Backend (port-forwarded by the script): http://localhost:8000/health
+
+4. Tear down when finished:
+
+```bash
+./scripts/local-cluster-down.sh
+```
+
+Notes:
+- The `scripts/kind-cluster-config.yaml` configures port mappings so NodePort 30080 and backend port 8000 are accessible on `localhost` while testing with `kind`.
+- Browser-to-backend communication requires an address reachable from your browser (the script port-forwards the backend to `localhost:8000`).
+
 
 **Terminal 3: Frontend**
 ```bash

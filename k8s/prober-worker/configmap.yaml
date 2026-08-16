@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prober-config
+  namespace: pulsepoint
+data:
+  CHECK_INTERVAL_SECONDS: "60"
+  HTTP_TIMEOUT_SECONDS: "10"

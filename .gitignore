@@ -54,6 +54,14 @@ dist/
 build/
 .next/
 
+# Kubernetes secret manifests
+**/secret.yaml
+k8s/**/secret.yaml
+
+# Ignore local Python config modules that may contain secrets
+**/config.py
+k8s/**/config.py
+
 # Database
 *.db
 *.sqlite
