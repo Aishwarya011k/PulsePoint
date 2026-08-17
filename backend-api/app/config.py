@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Database
-    database_url: str = "postgresql://pulse_user:pulse_password@postgres:5432/pulsepoint"
+    database_url: str = "postgresql://pulse_user:aishu@postgres:5432/pulsepoint"
     
     # JWT
     jwt_secret: str = "h3lf5UcDTKJUOcyrrEslPi9ZSHOgw7l6bsCA2SkSCoa"
