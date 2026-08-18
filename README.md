@@ -1,5 +1,7 @@
 # PulsePoint 
 
+[![CI](https://github.com/aishwarya/pulsepoint/actions/workflows/ci.yml/badge.svg)](https://github.com/aishwarya/pulsepoint/actions/workflows/ci.yml)
+
 **AI-Powered Predictive Uptime Monitoring Platform**
 
 PulsePoint monitors your services and predicts failures *before* they happen — not just alerting when something's already down, but detecting degradation trends early and explaining the likely root cause in plain English.
@@ -148,6 +150,106 @@ kubectl get svc -n pulsepoint
 ./scripts/local-cluster-down.sh
 ```
 
+---
+
+### Deploying with Helm
+
+The PulsePoint stack is packaged as a Helm chart for easy, repeatable deployments across different environments (local, dev, production).
+
+#### Prerequisites
+- Kubernetes cluster running (e.g., `kind`, `k3d`, or a managed cluster like EKS/GKE)
+- `kubectl` and `helm` (v3+) installed
+- Local Docker images pre-built and loaded into the cluster (or available in a registry)
+
+#### Chart Structure
+
+```
+helm/pulsepoint/
+├── Chart.yaml              # Chart metadata
+├── values.yaml             # Default values (local/dev-like)
+├── values-dev.yaml         # Dev environment overrides
+├── values-prod.yaml        # Production environment overrides (placeholder)
+└── templates/
+    ├── namespace.yaml
+    ├── postgres/           # Database deployment, service, PVC, secret
+    ├── backend-api/        # Backend API deployment, service, secret, configmap
+    ├── prober-worker/      # Prober worker deployment, secret, configmap
+    └── frontend/           # Frontend deployment, service
+```
+
+#### Installation
+
+**Option 1: Local Development (recommended for quick iteration)**
+```bash
+# Full clean reinstall of the namespace + chart
+kubectl delete namespace pulsepoint
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-dev.yaml \
+  -n pulsepoint \
+  --create-namespace
+
+# Verify the installation
+kubectl get pods -n pulsepoint
+kubectl get svc -n pulsepoint
+```
+
+**Option 2: Production-like (using prod overrides)**
+```bash
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-prod.yaml \
+  -n pulsepoint \
+  --create-namespace
+```
+
+#### Customizing Values
+
+All deployment parameters are exposed in `values.yaml`. To override specific settings without modifying the files:
+
+```bash
+# Override image tag for backend-api
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-dev.yaml \
+  --set backendApi.image.tag=v1.2.3 \
+  -n pulsepoint
+
+# Override replica counts, resource limits, CORS origins, etc.
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-dev.yaml \
+  --set backendApi.replicas=3 \
+  --set backendApi.corsAllowedOrigins="{http://localhost:3000,https://api.example.com}" \
+  -n pulsepoint
+```
+
+#### Secrets Management
+
+By default, `values.yaml` includes plaintext passwords as placeholders (`aishu` for Postgres, hardcoded JWT secrets). **In production, do not commit plaintext secrets to Git.**
+
+Instead, use one of these approaches:
+1. **Helm secrets plugin:** `helm secrets` to encrypt/decrypt values files
+2. **External secret store:** Use `ExternalSecrets` Operator or similar to fetch secrets from HashiCorp Vault, AWS Secrets Manager, etc.
+3. **Override at deploy time:** 
+
+```bash
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-prod.yaml \
+  --set postgres.password="$(aws secretsmanager get-secret-value --secret-id postgres-password --query SecretString --output text)" \
+  -n pulsepoint
+```
+
+#### Important Notes
+
+- The `k8s/` directory (raw K8s manifests) is now superseded by `helm/pulsepoint/` and will be removed in a future cleanup phase.
+- Frontend's `VITE_API_BASE_URL` is baked in at **Docker image build time**, not at deploy time. To change the API endpoint, rebuild the frontend image with a different `--build-arg VITE_API_BASE_URL=<new-url>`.
+- Backend-api's `CORS_ALLOWED_ORIGINS` is templated via the `corsAllowedOrigins` array in `values.yaml`. Ensure your frontend's origin (e.g., `http://localhost:30080`) is included to avoid cross-origin errors.
+
+---
+
+4. Tear down when finished:
+
+```bash
+./scripts/local-cluster-down.sh
+```
+
 Notes:
 - The `scripts/kind-cluster-config.yaml` configures port mappings so NodePort 30080 and backend port 8000 are accessible on `localhost` while testing with `kind`.
 - Browser-to-backend communication requires an address reachable from your browser (the script port-forwards the backend to `localhost:8000`).
@@ -187,13 +289,14 @@ Full Phase 1 guide: [`docs/phase1.md`](phase1-setup.md) *(coming soon)*
 |---|---|
 | **Containerization** | Docker |
 | **Orchestration** | Kubernetes, Helm |
-| **CI/CD** | Jenkins / GitHub Actions |
-| **GitOps / CD** | ArgoCD, dedicated `manifests-repo` |
+| **CI/CD** | GitHub Actions |
+| **Container Registry** | GitHub Container Registry (ghcr.io) |
+| **Security Scanning** | Trivy |
+| **GitOps / CD** | ArgoCD, dedicated `manifests-repo` (Phase 4) |
 | **Event Streaming** | Apache Kafka (Strimzi Operator) |
 | **Caching / State** | Redis |
 | **Database** | PostgreSQL |
 | **Observability** | Prometheus, Grafana, Loki + Promtail |
-| **Security** | Trivy (image vulnerability scanning) |
 | **AI/ML** | scikit-learn / statsmodels (anomaly & trend detection), LLM API (root-cause summarization) |
 | **Backend** | FastAPI (Python) / Node.js |
 | **Frontend** | React / Next.js |
@@ -307,9 +410,10 @@ Full setup guide: [`docs/setup.md`](docs/setup.md)
 
 - [x] Core app: target registration, manual health checks
 - [x] Dockerized services deployed to Kubernetes
-- [ ] Helm charts for all services
-- [ ] CI pipeline (Jenkins/GitHub Actions)
-- [ ] GitOps deployment via ArgoCD
+- [x] Helm charts for all services (Phase 3)
+- [x] CI pipeline (GitHub Actions) with linting, testing, build, Trivy scan, push (Phase 3)
+- [ ] GitOps deployment via ArgoCD (Phase 4)
+- [ ] Dedicated manifests repo for ArgoCD (Phase 4)
 - [ ] Kafka-based event pipeline for checks
 - [ ] Redis caching + AI rolling-window state
 - [ ] Prometheus + Grafana + Loki observability
