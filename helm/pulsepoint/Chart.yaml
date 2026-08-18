@@ -1,0 +1,14 @@
+apiVersion: v2
+name: pulsepoint
+description: A Helm chart for PulsePoint - AI-powered predictive uptime monitoring platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - monitoring
+  - uptime
+  - predictive
+  - health-checks
+home: https://github.com/aishwarya/pulsepoint
+maintainers:
+  - name: PulsePoint Team

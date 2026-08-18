@@ -1,0 +1,68 @@
+namespace: pulsepoint
+
+postgres:
+  image: postgres:15
+  database: pulsepoint
+  user: pulse_user
+  password: aishu  # Note: In production, override via --set or a separate secrets file; do not commit plaintext passwords
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+backendApi:
+  image:
+    repository: pulsepoint/backend-api
+    tag: local
+  replicas: 2
+  port: 8000
+  host: "0.0.0.0"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  corsAllowedOrigins:
+    - http://localhost:3000
+    - http://localhost:30080
+  secrets:
+    jwtSecret: h3lf5UcDTKJUOcyrrEslPi9ZSHOgw7l6bsCA2SkSCoa
+    internalApiToken: 3894c24bcc81591472a3a2878b80682c2cc35a44aa55d2fd59258c7a93bfd775
+
+proberWorker:
+  image:
+    repository: pulsepoint/prober-worker
+    tag: local
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  config:
+    checkIntervalSeconds: "60"
+    httpTimeoutSeconds: "10"
+
+frontend:
+  image:
+    repository: pulsepoint/frontend
+    tag: local
+  replicas: 2
+  port: 80
+  nodePort: 30080
+  apiBaseUrl: http://localhost:8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

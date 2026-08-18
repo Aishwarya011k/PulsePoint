@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prober-config
+  namespace: {{ .Values.namespace }}
+data:
+  CHECK_INTERVAL_SECONDS: {{ .Values.proberWorker.config.checkIntervalSeconds | quote }}
+  HTTP_TIMEOUT_SECONDS: {{ .Values.proberWorker.config.httpTimeoutSeconds | quote }}

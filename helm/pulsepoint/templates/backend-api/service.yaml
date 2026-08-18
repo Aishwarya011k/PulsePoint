@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-api
+  ports:
+    - port: {{ .Values.backendApi.port }}
+      targetPort: {{ .Values.backendApi.port }}

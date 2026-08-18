@@ -1,0 +1,36 @@
+# Development environment overrides
+# This file extends values.yaml for dev deployments
+
+backendApi:
+  replicas: 1
+  corsAllowedOrigins:
+    - http://localhost:3000
+    - http://localhost:30080
+    - http://localhost:8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+proberWorker:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+frontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi

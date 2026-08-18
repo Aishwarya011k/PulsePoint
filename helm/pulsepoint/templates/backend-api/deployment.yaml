@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.backendApi.replicas }}
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+        - name: backend-api
+          image: {{ .Values.backendApi.image.repository }}:{{ .Values.backendApi.image.tag }}
+          ports:
+            - containerPort: {{ .Values.backendApi.port }}
+          envFrom:
+            - secretRef:
+                name: backend-secret
+            - configMapRef:
+                name: backend-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backendApi.port }}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backendApi.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: {{ .Values.backendApi.resources.requests.cpu }}
+              memory: {{ .Values.backendApi.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.backendApi.resources.limits.cpu }}
+              memory: {{ .Values.backendApi.resources.limits.memory }}

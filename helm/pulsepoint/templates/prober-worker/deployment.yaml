@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prober-worker
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.proberWorker.replicas }}
+  selector:
+    matchLabels:
+      app: prober-worker
+  template:
+    metadata:
+      labels:
+        app: prober-worker
+    spec:
+      containers:
+        - name: prober-worker
+          image: {{ .Values.proberWorker.image.repository }}:{{ .Values.proberWorker.image.tag }}
+          envFrom:
+            - secretRef:
+                name: prober-secret
+            - configMapRef:
+                name: prober-config
+          resources:
+            requests:
+              cpu: {{ .Values.proberWorker.resources.requests.cpu }}
+              memory: {{ .Values.proberWorker.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.proberWorker.resources.limits.cpu }}
+              memory: {{ .Values.proberWorker.resources.limits.memory }}
+          # Worker has no HTTP endpoint; run as a long-lived process
+      # Note: scaling this deployment >1 will cause duplicate checks until a coordination mechanism exists
