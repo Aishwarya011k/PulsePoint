@@ -8,6 +8,7 @@ echo "Checking prerequisites..."
 command -v kind >/dev/null 2>&1 || { echo "kind not found. Install kind first."; exit 1; }
 command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found. Install kubectl first."; exit 1; }
 command -v docker >/dev/null 2>&1 || { echo "docker not found. Install docker first."; exit 1; }
+command -v helm >/dev/null 2>&1 || { echo "helm not found. Install helm first."; exit 1; }
 
 CLUSTER_NAME=pulsepoint
 KIND_CONFIG="$(pwd)/scripts/kind-cluster-config.yaml"
@@ -29,13 +30,11 @@ kind load docker-image pulsepoint/backend-api:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/prober-worker:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/frontend:local --name ${CLUSTER_NAME}
 
-echo "Applying Kubernetes manifests..."
-kubectl apply -f k8s/namespace.yaml
-
-kubectl apply -f k8s/postgres/ -n pulsepoint
-kubectl apply -f k8s/backend-api/ -n pulsepoint
-kubectl apply -f k8s/prober-worker/ -n pulsepoint
-kubectl apply -f k8s/frontend/ -n pulsepoint
+echo "Applying Kubernetes manifests with Helm..."
+helm upgrade --install pulsepoint ./helm/pulsepoint \
+  -f ./helm/pulsepoint/values-dev.yaml \
+  -n pulsepoint \
+  --create-namespace
 
 echo "Waiting for pods to be ready (this may take a minute)..."
 kubectl wait --for=condition=ready pod -l app=postgres -n pulsepoint --timeout=120s || true
