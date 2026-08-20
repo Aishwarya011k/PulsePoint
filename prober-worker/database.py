@@ -2,6 +2,7 @@
 import enum
 from datetime import datetime
 
+from config import config
 from sqlalchemy import (
     Boolean,
     Column,
@@ -15,8 +16,6 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-from config import config
 
 # Create engine
 engine = create_engine(

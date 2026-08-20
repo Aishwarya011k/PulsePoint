@@ -5,10 +5,9 @@ from datetime import UTC, datetime
 
 import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import desc
-
 from config import config
 from database import Check, Incident, IncidentStatus, SessionLocal, Target
+from sqlalchemy import desc
 
 # Configure logging
 logging.basicConfig(

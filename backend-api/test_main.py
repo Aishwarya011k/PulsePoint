@@ -1,14 +1,13 @@
 """Tests for the Backend API."""
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
 from app.models import User
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 

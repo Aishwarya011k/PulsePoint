@@ -1,7 +1,6 @@
 """Entry point to run the FastAPI server."""
 
 import uvicorn
-
 from app.config import settings
 
 if __name__ == "__main__":
