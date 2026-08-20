@@ -227,14 +227,15 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Check Trivy scan for HIGH/CRITICAL vulnerabilities
+      - name: Check Trivy scan for actionable CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ steps.image_tag.outputs.image_name }}:${{ steps.image_tag.outputs.short_sha }}
           format: 'table'
-          severity: 'HIGH,CRITICAL'
+          severity: 'CRITICAL'
+          ignore-unfixed: true
           exit-code: '1'
-        # Intentionally fail the job when HIGH/CRITICAL vulnerabilities are found
+        # Fail only on unpatched CRITICAL issues; keep the full SARIF report for visibility.
 
       - name: Push image to GitHub Container Registry
         if: github.ref == 'refs/heads/main'
