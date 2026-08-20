@@ -56,7 +56,7 @@ jobs:
           pip install -r backend-api/requirements.txt
 
       - name: Run pytest
-        run: pytest backend-api/test_main.py -v
+        run: python -m pytest backend-api/test_main.py -v
         env:
           DATABASE_URL: sqlite:///test.db
           JWT_SECRET: test-secret

@@ -1,5 +1,11 @@
 """Tests for the Backend API."""
 
+import os
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("INTERNAL_API_TOKEN", "test-token")
+
 import pytest
 from app.auth import hash_password
 from app.database import Base, get_db
@@ -9,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
+SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(
     SQLALCHEMY_TEST_DATABASE_URL,
