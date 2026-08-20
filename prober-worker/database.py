@@ -1,19 +1,21 @@
 """Database connection and models for the prober worker."""
+import enum
+from datetime import datetime
+
 from sqlalchemy import (
-    create_engine,
+    Boolean,
     Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Boolean,
-    Float,
-    DateTime,
-    ForeignKey,
-    Enum,
     Text,
+    create_engine,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime
-import enum
+
 from config import config
 
 # Create engine

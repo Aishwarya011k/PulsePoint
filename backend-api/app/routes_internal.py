@@ -1,11 +1,13 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
 from app.models import Target
-from app.config import settings
 from app.websocket_manager import manager
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -20,10 +22,10 @@ class CheckCompletedRequest(BaseModel):
 
 
 @router.post("/check-completed")
-def check_completed(
+async def check_completed(
     request: CheckCompletedRequest,
     x_internal_token: str = Header(..., alias="X-Internal-Token"),
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)] = None,
 ):
     if x_internal_token != settings.internal_api_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
@@ -42,5 +44,5 @@ def check_completed(
             "checked_at": request.checked_at.isoformat(),
         },
     }
-    manager.broadcast(message)
+    await manager.broadcast(message)
     return {"status": "ok"}

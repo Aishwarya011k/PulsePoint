@@ -1,12 +1,14 @@
 """Main prober worker that performs health checks on a schedule."""
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
+
 import httpx
-from sqlalchemy import desc
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy import desc
+
 from config import config
-from database import SessionLocal, Target, Check, Incident, IncidentStatus
+from database import Check, Incident, IncidentStatus, SessionLocal, Target
 
 # Configure logging
 logging.basicConfig(
@@ -52,8 +54,8 @@ def perform_check(url: str) -> dict:
             "response_time_ms": config.HTTP_TIMEOUT_SECONDS * 1000,
             "success": False,
         }
-    except Exception as e:
-        logger.error(f"Check failed for {url}: {e}")
+    except httpx.HTTPError as exc:
+        logger.error(f"Check failed for {url}: {exc}")
         return {
             "status_code": 0,
             "response_time_ms": 0,
@@ -89,7 +91,7 @@ def record_check(db, target_id: int, check_result: dict):
             status_code=check_result["status_code"],
             response_time_ms=check_result["response_time_ms"],
             success=check_result["success"],
-            checked_at=datetime.utcnow(),
+            checked_at=datetime.now(UTC),
         )
         db.add(new_check)
         
@@ -100,7 +102,7 @@ def record_check(db, target_id: int, check_result: dict):
             new_incident = Incident(
                 target_id=target_id,
                 status=IncidentStatus.OPEN,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(UTC),
             )
             db.add(new_incident)
         elif not previous_success and check_result["success"]:
@@ -112,12 +114,12 @@ def record_check(db, target_id: int, check_result: dict):
             ).first()
             if open_incident:
                 open_incident.status = IncidentStatus.RESOLVED
-                open_incident.resolved_at = datetime.utcnow()
+                open_incident.resolved_at = datetime.now(UTC)
         
         db.commit()
         logger.info(f"Check recorded for target {target_id}")
-    except Exception as e:
-        logger.error(f"Error recording check for target {target_id}: {e}")
+    except (ValueError, TypeError) as exc:
+        logger.error(f"Error recording check for target {target_id}: {exc}")
         db.rollback()
 
 
@@ -151,7 +153,7 @@ def check_targets():
             
             # Determine if this target needs a check
             if last_check:
-                time_since_check = datetime.utcnow() - last_check.checked_at
+                time_since_check = datetime.now(UTC) - last_check.checked_at
                 seconds_since_check = time_since_check.total_seconds()
                 needs_check = seconds_since_check >= target.check_interval_seconds
             else:
@@ -169,8 +171,8 @@ def check_targets():
                 )
         
         logger.info("Health check cycle completed")
-    except Exception as e:
-        logger.error(f"Error in check_targets: {e}")
+    except (RuntimeError, ValueError) as exc:
+        logger.error(f"Error in check_targets: {exc}")
     finally:
         db.close()
 

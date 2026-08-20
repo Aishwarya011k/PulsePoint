@@ -2,10 +2,11 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
+
 from app.database import Base, engine
 from app.routes_auth import router as auth_router
-from app.routes_targets import router as targets_router
 from app.routes_internal import router as internal_router
+from app.routes_targets import router as targets_router
 from app.websocket_manager import manager
 
 

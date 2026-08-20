@@ -1,9 +1,9 @@
 from fastapi import WebSocket
-from typing import List
+
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -16,7 +16,7 @@ class ConnectionManager:
         for connection in self.active_connections.copy():
             try:
                 await connection.send_json(message)
-            except Exception:
+            except (RuntimeError, ValueError):
                 self.disconnect(connection)
 
 

@@ -1,14 +1,15 @@
 """Tests for the Backend API."""
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.database import Base, get_db
-from app.models import User
-from app.auth import hash_password
 
-# Use in-memory SQLite for tests
+from app.auth import hash_password
+from app.database import Base, get_db
+from app.main import app
+from app.models import User
+
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
@@ -69,13 +70,11 @@ def test_register():
 
 def test_register_duplicate_email():
     """Test registration with duplicate email."""
-    # Register first user
     client.post(
         "/auth/register",
         json={"email": "duplicate@example.com", "password": "password123"},
     )
-    
-    # Try to register with same email
+
     response = client.post(
         "/auth/register",
         json={"email": "duplicate@example.com", "password": "password456"},
@@ -86,13 +85,11 @@ def test_register_duplicate_email():
 
 def test_login():
     """Test user login."""
-    # Register first
     client.post(
         "/auth/register",
         json={"email": "login@example.com", "password": "password123"},
     )
-    
-    # Then login
+
     response = client.post(
         "/auth/login",
         json={"email": "login@example.com", "password": "password123"},
@@ -115,14 +112,12 @@ def test_login_invalid_credentials():
 
 def test_create_target():
     """Test creating a target."""
-    # Register and login
     reg_response = client.post(
         "/auth/register",
         json={"email": "target@example.com", "password": "password123"},
     )
     token = reg_response.json()["access_token"]
-    
-    # Create target
+
     response = client.post(
         "/targets",
         json={
@@ -140,14 +135,12 @@ def test_create_target():
 
 def test_list_targets():
     """Test listing targets."""
-    # Register and login
     reg_response = client.post(
         "/auth/register",
         json={"email": "listuser@example.com", "password": "password123"},
     )
     token = reg_response.json()["access_token"]
-    
-    # Create two targets
+
     for i in range(2):
         client.post(
             "/targets",
@@ -158,8 +151,7 @@ def test_list_targets():
             },
             headers={"Authorization": f"Bearer {token}"},
         )
-    
-    # List targets
+
     response = client.get(
         "/targets",
         headers={"Authorization": f"Bearer {token}"},
@@ -172,14 +164,12 @@ def test_list_targets():
 
 def test_delete_target():
     """Test deleting a target."""
-    # Register and login
     reg_response = client.post(
         "/auth/register",
         json={"email": "deleteuser@example.com", "password": "password123"},
     )
     token = reg_response.json()["access_token"]
-    
-    # Create target
+
     create_response = client.post(
         "/targets",
         json={
@@ -190,15 +180,13 @@ def test_delete_target():
         headers={"Authorization": f"Bearer {token}"},
     )
     target_id = create_response.json()["id"]
-    
-    # Delete target
+
     response = client.delete(
         f"/targets/{target_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 204
-    
-    # Verify it's deleted
+
     get_response = client.get(
         f"/targets/{target_id}",
         headers={"Authorization": f"Bearer {token}"},

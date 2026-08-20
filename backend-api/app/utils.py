@@ -1,9 +1,10 @@
 import math
 import re
-from datetime import datetime, timedelta
-from typing import List, Dict
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.orm import Session
-from app.models import Target, Check
+
+from app.models import Check, Target
 
 
 def slugify(name: str) -> str:
@@ -21,7 +22,7 @@ def generate_unique_slug(db: Session, name: str) -> str:
     return candidate
 
 
-def percentile(values: List[float], percent: float) -> float:
+def percentile(values: list[float], percent: float) -> float:
     if not values:
         return 0.0
     sorted_values = sorted(values)
@@ -35,11 +36,11 @@ def percentile(values: List[float], percent: float) -> float:
 
 
 def build_timeseries_response(
-    checks: List[Check],
+    checks: list[Check],
     start_time: datetime,
     bucket_seconds: int,
-) -> Dict:
-    buckets: Dict[datetime, Dict[str, object]] = {}
+) -> list[dict]:
+    buckets: dict[datetime, dict[str, object]] = {}
     for check in checks:
         if check.checked_at < start_time:
             continue
@@ -80,22 +81,19 @@ def build_timeseries_response(
     return points
 
 
-def calculate_uptime_percentage(checks: List[Check]) -> float:
+def calculate_uptime_percentage(checks: list[Check]) -> float:
     if not checks:
         return 100.0
     success_count = sum(1 for check in checks if check.success)
     return round(success_count / len(checks) * 100, 2)
 
 
-def build_daily_uptime_history(checks: List[Check], days: int) -> List[Dict[str, object]]:
-    now = datetime.utcnow()
+def build_daily_uptime_history(checks: list[Check], days: int) -> list[dict[str, object]]:
+    now = datetime.now(UTC)
     history = []
     for day_offset in range(days - 1, -1, -1):
-        day_start = datetime(
-            year=(now - timedelta(days=day_offset)).year,
-            month=(now - timedelta(days=day_offset)).month,
-            day=(now - timedelta(days=day_offset)).day,
-        )
+        day = now - timedelta(days=day_offset)
+        day_start = datetime(year=day.year, month=day.month, day=day.day, tzinfo=UTC)
         day_end = day_start + timedelta(days=1)
         daily_checks = [check for check in checks if day_start <= check.checked_at < day_end]
         uptime = calculate_uptime_percentage(daily_checks)
@@ -115,7 +113,7 @@ def build_daily_uptime_history(checks: List[Check], days: int) -> List[Dict[str,
     return history
 
 
-def current_status_from_checks(checks: List[Check]) -> str:
+def current_status_from_checks(checks: list[Check]) -> str:
     if not checks:
         return "unknown"
     latest = max(checks, key=lambda check: check.checked_at)
