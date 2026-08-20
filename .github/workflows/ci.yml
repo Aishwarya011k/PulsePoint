@@ -9,8 +9,9 @@ on:
       - main
 
 permissions:
-  packages: write
   contents: read
+  packages: write
+  security-events: write
 
 jobs:
   backend-lint:
@@ -222,7 +223,7 @@ jobs:
           severity: 'MEDIUM,HIGH,CRITICAL'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
 
