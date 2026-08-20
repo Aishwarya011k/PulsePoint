@@ -1,6 +1,6 @@
 # PulsePoint 
 
-[![CI](https://github.com/aishwarya/pulsepoint/actions/workflows/ci.yml/badge.svg)](https://github.com/aishwarya/pulsepoint/actions/workflows/ci.yml)
+[![CI](https://github.com/aishwarya011k/pulsepoint/actions/workflows/ci.yml/badge.svg)](https://github.com/aishwarya011k/pulsepoint/actions/workflows/ci.yml)
 
 **AI-Powered Predictive Uptime Monitoring Platform**
 
