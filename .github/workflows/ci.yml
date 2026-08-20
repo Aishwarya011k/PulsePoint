@@ -165,6 +165,7 @@ jobs:
     needs: [backend-test, prober-test, frontend-test]
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     strategy:
+      fail-fast: false
       matrix:
         service: [backend-api, prober-worker, frontend]
     steps:
