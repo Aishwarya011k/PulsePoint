@@ -57,11 +57,12 @@ jobs:
           pip install -r backend-api/requirements.txt
 
       - name: Run pytest
-        run: python -m pytest backend-api/test_main.py -v
         env:
+          PYTHONPATH: backend-api
           DATABASE_URL: sqlite:///test.db
           JWT_SECRET: test-secret
           INTERNAL_API_TOKEN: test-token
+        run: python -m pytest backend-api/test_main.py -v
 
   prober-lint:
     name: Prober Worker - Lint
