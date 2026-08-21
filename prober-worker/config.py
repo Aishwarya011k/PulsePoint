@@ -1,5 +1,6 @@
 """Configuration for the prober worker."""
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,7 +13,7 @@ class Config:
     # Database
     DATABASE_URL = os.getenv(
         "DATABASE_URL",
-        "postgresql://pulse_user:pulse_password@localhost:5432/pulsepoint"
+        "postgresql://pulse_user:aishu@localhost:5432/pulsepoint"
     )
     
     # Scheduler
