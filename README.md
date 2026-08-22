@@ -242,6 +242,75 @@ helm upgrade --install pulsepoint ./helm/pulsepoint \
 - Frontend's `VITE_API_BASE_URL` is baked in at **Docker image build time**, not at deploy time. To change the API endpoint, rebuild the frontend image with a different `--build-arg VITE_API_BASE_URL=<new-url>`.
 - Backend-api's `CORS_ALLOWED_ORIGINS` is templated via the `corsAllowedOrigins` array in `values.yaml`. Ensure your frontend's origin (e.g., `http://localhost:30080`) is included to avoid cross-origin errors.
 
+### GitOps Deployment Flow
+
+PulsePoint now uses a GitOps delivery loop instead of direct `helm upgrade --install` commands for normal deployments.
+
+```text
+git push (app code) → GitHub Actions CI (lint/test/build/scan/push image)
+   → CI updates the dedicated manifests repo with the new image tag
+   → ArgoCD detects the Git change → auto-syncs the cluster
+   → New version is running, with zero manual kubectl/helm commands
+```
+
+#### How the manifests repo is updated
+
+The CI workflow in `.github/workflows/ci.yml` performs the final GitOps step after the image pushes succeed:
+
+1. Check out the separate `pulsepoint-manifests` repo using a `MANIFESTS_REPO_PAT` GitHub secret.
+2. Update `dev/values.yaml` with the current short SHA for:
+   - `backendApi.image.tag`
+   - `proberWorker.image.tag`
+   - `frontend.image.tag`
+3. Commit the change and push it back to the manifests repo.
+
+> The PAT should be a fine-grained or repository-scoped token with write access only to the `pulsepoint-manifests` repo, and should not be a broad personal access token with full account scope.
+
+#### ArgoCD setup and local access
+
+Install ArgoCD in the local cluster:
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+Get the initial admin password:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+Then port-forward the ArgoCD API server locally:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8080:443
+```
+
+Open `https://localhost:8080` in a browser, log in as `admin`, and change the password when prompted.
+
+#### Manual sync and verification
+
+The ArgoCD application is defined in `argocd/application.yaml` and points to the `pulsepoint-manifests` repo's `dev/` path.
+
+To trigger a sync manually:
+
+```bash
+argocd app sync pulsepoint
+```
+
+Or use the ArgoCD UI and select the application, then click `Sync`.
+
+To verify the GitOps loop end-to-end:
+
+1. Make a small code change in the PulsePoint app repo.
+2. Push to `main`.
+3. Watch GitHub Actions build, scan, push the image, then update the manifests repo.
+4. ArgoCD detects the Git change and syncs the cluster automatically.
+5. Confirm the running cluster reflects the new image without any direct `kubectl` or `helm` deploy commands.
+
+> For a local `kind` cluster, the simplest migration path from the Phase 3 Helm install is to delete and recreate the `pulsepoint` namespace before applying the ArgoCD application, so ArgoCD owns the resources from the first sync cleanly.
+
 ---
 
 4. Tear down when finished:
