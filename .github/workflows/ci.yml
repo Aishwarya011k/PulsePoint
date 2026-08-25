@@ -269,12 +269,22 @@ jobs:
     needs: build-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      - name: Validate manifests repo token
+        run: |
+          if [ -z "${{ secrets.MANIFESTS_REPO_PAT }}" ]; then
+            echo "::error::MANIFESTS_REPO_PAT is missing. Add the PAT for aishwarya011k/pulsepoint-manifests before enabling this job."
+            exit 1
+          fi
+
       - name: Checkout pulsepoint-manifests repo
         uses: actions/checkout@v4
         with:
           repository: aishwarya011k/pulsepoint-manifests
+          ref: main
           path: pulsepoint-manifests
           token: ${{ secrets.MANIFESTS_REPO_PAT }}
+          fetch-depth: 1
+          persist-credentials: true
 
       - name: Install YAML tooling
         run: python -m pip install pyyaml
