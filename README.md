@@ -152,6 +152,30 @@ kubectl get svc -n pulsepoint
 
 ---
 
+### Kafka Event Pipeline
+
+PulsePoint now uses Kafka as the event backbone between the Prober Worker and Postgres. The flow is:
+
+```text
+Prober Worker -> Kafka checks topic -> checks-consumer -> Postgres checks/incidents tables
+```
+
+This keeps the probe loop focused on network checks and timing, while the consumer owns the database writes and incident transition logic. The `metrics` and `incidents` topics are created up front for Phase 8, but they are not consumed by the app yet.
+
+For local debugging, you can inspect Kafka from the Strimzi-managed broker pod:
+
+```bash
+kubectl -n pulsepoint get pods | grep kafka
+kubectl -n pulsepoint exec -it <kafka-pod-name> -- /bin/bash
+
+# Inside the pod
+/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic checks --from-beginning
+```
+
+If the Strimzi CLI or UI is easier in your local setup, use that instead; the important part is that the raw `checks` messages remain visible for troubleshooting.
+
+> Phase 6 will eventually add Redis for the checks-consumer's recent-window state, but this phase intentionally leaves that out to keep the worker and consumer focused on the Kafka pipeline.
+
 ### Deploying with Helm
 
 The PulsePoint stack is packaged as a Helm chart for easy, repeatable deployments across different environments (local, dev, production).

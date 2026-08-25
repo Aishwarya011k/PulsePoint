@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checks-consumer
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.checksConsumer.replicas }}
+  selector:
+    matchLabels:
+      app: checks-consumer
+  template:
+    metadata:
+      labels:
+        app: checks-consumer
+    spec:
+      containers:
+        - name: checks-consumer
+          image: {{ .Values.checksConsumer.image.repository }}:{{ .Values.checksConsumer.image.tag }}
+          envFrom:
+            - secretRef:
+                name: checks-consumer-secret
+            - configMapRef:
+                name: checks-consumer-config
+          resources:
+            requests:
+              cpu: {{ .Values.checksConsumer.resources.requests.cpu }}
+              memory: {{ .Values.checksConsumer.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.checksConsumer.resources.limits.cpu }}
+              memory: {{ .Values.checksConsumer.resources.limits.memory }}

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: prober-config
+  name: checks-consumer-config
   namespace: {{ .Values.namespace }}
 data:
-  CHECK_INTERVAL_SECONDS: {{ .Values.proberWorker.config.checkIntervalSeconds | quote }}
-  HTTP_TIMEOUT_SECONDS: {{ .Values.proberWorker.config.httpTimeoutSeconds | quote }}
   KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
   KAFKA_CHECKS_TOPIC: {{ .Values.kafka.topics.checks | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.kafka.consumerGroup | quote }}
+  KAFKA_AUTO_OFFSET_RESET: {{ .Values.kafka.autoOffsetReset | quote }}

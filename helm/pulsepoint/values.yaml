@@ -51,6 +51,45 @@ proberWorker:
     checkIntervalSeconds: "60"
     httpTimeoutSeconds: "10"
 
+checksConsumer:
+  image:
+    repository: pulsepoint/checks-consumer
+    tag: local
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+kafka:
+  enabled: true
+  clusterName: pulsepoint-kafka
+  bootstrapServers: pulsepoint-kafka-kafka-bootstrap:9092
+  consumerGroup: pulsepoint-checks-consumer
+  autoOffsetReset: earliest
+  topics:
+    checks: checks
+    metrics: metrics
+    incidents: incidents
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  zookeeper:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
+
 frontend:
   image:
     repository: pulsepoint/frontend

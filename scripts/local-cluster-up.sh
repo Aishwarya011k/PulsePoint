@@ -23,11 +23,13 @@ fi
 echo "Building images..."
 docker build -t pulsepoint/backend-api:local -f backend-api/Dockerfile .
 docker build -t pulsepoint/prober-worker:local -f prober-worker/Dockerfile .
+docker build -t pulsepoint/checks-consumer:local -f checks-consumer/Dockerfile .
 docker build -t pulsepoint/frontend:local -f frontend/Dockerfile --build-arg VITE_API_BASE_URL=http://localhost:8000 .
 
 echo "Loading images into kind..."
 kind load docker-image pulsepoint/backend-api:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/prober-worker:local --name ${CLUSTER_NAME}
+kind load docker-image pulsepoint/checks-consumer:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/frontend:local --name ${CLUSTER_NAME}
 
 echo "Applying Kubernetes manifests with Helm..."

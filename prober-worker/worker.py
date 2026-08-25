@@ -1,4 +1,5 @@
 """Main prober worker that performs health checks on a schedule."""
+import json
 import logging
 import time
 from datetime import UTC, datetime
@@ -6,7 +7,8 @@ from datetime import UTC, datetime
 import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
 from config import config
-from database import Check, Incident, IncidentStatus, SessionLocal, Target
+from confluent_kafka import Producer
+from database import Check, SessionLocal, Target
 from sqlalchemy import desc
 
 # Configure logging
@@ -15,6 +17,38 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+
+def build_check_event(target_id: int, check_result: dict) -> dict:
+    """Build a Kafka payload for a completed check."""
+    return {
+        "target_id": target_id,
+        "status_code": check_result["status_code"],
+        "response_time_ms": check_result["response_time_ms"],
+        "success": check_result["success"],
+        "checked_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def publish_check_event(event: dict):
+    """Publish a completed check to the Kafka checks topic."""
+    producer_config = {
+        "bootstrap.servers": config.KAFKA_BOOTSTRAP_SERVERS,
+        "acks": "all",
+        "retries": 3,
+    }
+    producer = Producer(producer_config)
+    try:
+        payload = json.dumps(event).encode("utf-8")
+        producer.produce(config.KAFKA_CHECKS_TOPIC, value=payload)
+        producer.flush(timeout=10)
+        logger.info(
+            "Published check event for target %s to Kafka topic %s",
+            event["target_id"],
+            config.KAFKA_CHECKS_TOPIC,
+        )
+    finally:
+        producer.flush()
 
 
 def perform_check(url: str) -> dict:
@@ -63,63 +97,11 @@ def perform_check(url: str) -> dict:
 
 
 def record_check(db, target_id: int, check_result: dict):
-    """
-    Record a check result and manage incidents.
-    
-    Args:
-        db: Database session
-        target_id: ID of the target being checked
-        check_result: Result dictionary from perform_check()
-    """
-    try:
-        target = db.query(Target).filter(Target.id == target_id).first()
-        if not target:
-            logger.warning(f"Target {target_id} not found")
-            return
-        
-        # Get the previous check to detect status transitions
-        previous_check = db.query(Check).filter(
-            Check.target_id == target_id
-        ).order_by(desc(Check.checked_at)).first()
-        
-        previous_success = previous_check.success if previous_check else True
-        
-        # Record the new check
-        new_check = Check(
-            target_id=target_id,
-            status_code=check_result["status_code"],
-            response_time_ms=check_result["response_time_ms"],
-            success=check_result["success"],
-            checked_at=datetime.now(UTC),
-        )
-        db.add(new_check)
-        
-        # Manage incidents based on status transition
-        if previous_success and not check_result["success"]:
-            # Transition from success to failure: open new incident
-            logger.warning(f"Target {target_id} ({target.name}) went DOWN")
-            new_incident = Incident(
-                target_id=target_id,
-                status=IncidentStatus.OPEN,
-                started_at=datetime.now(UTC),
-            )
-            db.add(new_incident)
-        elif not previous_success and check_result["success"]:
-            # Transition from failure to success: resolve open incident
-            logger.info(f"Target {target_id} ({target.name}) came BACK UP")
-            open_incident = db.query(Incident).filter(
-                Incident.target_id == target_id,
-                Incident.status == IncidentStatus.OPEN,
-            ).first()
-            if open_incident:
-                open_incident.status = IncidentStatus.RESOLVED
-                open_incident.resolved_at = datetime.now(UTC)
-        
-        db.commit()
-        logger.info(f"Check recorded for target {target_id}")
-    except (ValueError, TypeError) as exc:
-        logger.error(f"Error recording check for target {target_id}: {exc}")
-        db.rollback()
+    """Publish a check result to Kafka instead of writing directly to Postgres."""
+    db.query(Target).filter(Target.id == target_id).first()
+    event = build_check_event(target_id, check_result)
+    publish_check_event(event)
+    logger.info("Kafka event published for target %s", target_id)
 
 
 def check_targets():

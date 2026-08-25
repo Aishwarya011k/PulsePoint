@@ -1,0 +1,40 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ .Values.kafka.topics.checks }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ .Values.kafka.topics.metrics }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ .Values.kafka.topics.incidents }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  partitions: 3
+  replicas: 1
+  config:
+    retention.ms: 604800000
+{{- end }}

@@ -1,0 +1,51 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ .Values.kafka.clusterName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  kafka:
+    version: 3.7.0
+    replicas: 1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      num.partitions: 3
+      inter.broker.protocol.version: "3.7"
+    storage:
+      type: ephemeral
+    resources:
+      requests:
+        cpu: {{ .Values.kafka.resources.requests.cpu }}
+        memory: {{ .Values.kafka.resources.requests.memory }}
+      limits:
+        cpu: {{ .Values.kafka.resources.limits.cpu }}
+        memory: {{ .Values.kafka.resources.limits.memory }}
+  zookeeper:
+    replicas: 1
+    storage:
+      type: ephemeral
+    resources:
+      requests:
+        cpu: {{ .Values.kafka.zookeeper.resources.requests.cpu }}
+        memory: {{ .Values.kafka.zookeeper.resources.requests.memory }}
+      limits:
+        cpu: {{ .Values.kafka.zookeeper.resources.limits.cpu }}
+        memory: {{ .Values.kafka.zookeeper.resources.limits.memory }}
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+{{- end }}
