@@ -270,13 +270,19 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - name: Check manifests repo token
-        if: ${{ secrets.MANIFESTS_REPO_PAT == '' }}
+        id: check_token
+        env:
+          MANIFESTS_REPO_PAT: ${{ secrets.MANIFESTS_REPO_PAT }}
         run: |
-          echo "MANIFESTS_REPO_PAT is not configured; skipping GitOps manifest update."
-          exit 0
+          if [ -z "$MANIFESTS_REPO_PAT" ]; then
+            echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "MANIFESTS_REPO_PAT is not configured; skipping GitOps manifest update."
+          else
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Checkout pulsepoint-manifests repo
-        if: ${{ secrets.MANIFESTS_REPO_PAT != '' }}
+        if: ${{ steps.check_token.outputs.has_token == 'true' }}
         uses: actions/checkout@v4
         with:
           repository: aishwarya011k/pulsepoint-manifests
@@ -287,11 +293,11 @@ jobs:
           persist-credentials: true
 
       - name: Install YAML tooling
-        if: ${{ secrets.MANIFESTS_REPO_PAT != '' }}
+        if: ${{ steps.check_token.outputs.has_token == 'true' }}
         run: python -m pip install pyyaml
 
       - name: Update image tags in dev values
-        if: ${{ secrets.MANIFESTS_REPO_PAT != '' }}
+        if: ${{ steps.check_token.outputs.has_token == 'true' }}
         env:
           SHORT_SHA: ${{ github.sha }}
         run: |
@@ -324,7 +330,7 @@ jobs:
           PY
 
       - name: Commit and push updated image tags
-        if: ${{ secrets.MANIFESTS_REPO_PAT != '' }}
+        if: ${{ steps.check_token.outputs.has_token == 'true' }}
         run: |
           cd pulsepoint-manifests
           git config user.name "github-actions[bot]"
