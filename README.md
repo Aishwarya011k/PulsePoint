@@ -505,9 +505,9 @@ Full setup guide: [`docs/setup.md`](docs/setup.md)
 - [x] Dockerized services deployed to Kubernetes
 - [x] Helm charts for all services (Phase 3)
 - [x] CI pipeline (GitHub Actions) with linting, testing, build, Trivy scan, push (Phase 3)
-- [ ] GitOps deployment via ArgoCD (Phase 4)
-- [ ] Dedicated manifests repo for ArgoCD (Phase 4)
-- [ ] Kafka-based event pipeline for checks
+- [x] GitOps deployment via ArgoCD (Phase 4)
+- [x] Dedicated manifests repo for ArgoCD (Phase 4)
+- [x] Kafka-based event pipeline for checks
 - [ ] Redis caching + AI rolling-window state
 - [ ] Prometheus + Grafana + Loki observability
 - [ ] AI trend/anomaly detection engine
