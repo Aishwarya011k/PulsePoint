@@ -57,8 +57,9 @@ Full architecture write-up with diagrams: [`docs/architecture.md`](docs/architec
 ### Three Independent Services
 
 1. **backend-api/** — FastAPI REST API (Python)
-2. **prober-worker/** — Background health check scheduler (Python)
-3. **frontend/** — React + Vite dashboard (TypeScript)
+2. **prober-worker/** — Background health check scheduler (Python) — publishes check events to Kafka
+3. **checks-consumer/** — Consumer that reads the `checks` topic and persists checks/incidents to Postgres
+4. **frontend/** — React + Vite dashboard (TypeScript)
 
 ### Prerequisites
 
@@ -198,6 +199,8 @@ helm/pulsepoint/
     ├── postgres/           # Database deployment, service, PVC, secret
     ├── backend-api/        # Backend API deployment, service, secret, configmap
     ├── prober-worker/      # Prober worker deployment, secret, configmap
+    ├── checks-consumer/    # Checks consumer deployment, configmap, secret
+    ├── kafka/              # Strimzi Kafka CRs and topics (single-broker dev setup)
     └── frontend/           # Frontend deployment, service
 ```
 
@@ -285,7 +288,8 @@ The CI workflow in `.github/workflows/ci.yml` performs the final GitOps step aft
 2. Update `dev/values.yaml` with the current short SHA for:
    - `backendApi.image.tag`
    - `proberWorker.image.tag`
-   - `frontend.image.tag`
+  - `frontend.image.tag`
+  - `checksConsumer.image.tag`
 3. Commit the change and push it back to the manifests repo.
 
 > The PAT should be a fine-grained or repository-scoped token with write access only to the `pulsepoint-manifests` repo, and should not be a broad personal access token with full account scope.
@@ -403,6 +407,7 @@ Full Phase 1 guide: [`docs/phase1.md`](phase1-setup.md) *(coming soon)*
 | `frontend/` | Dashboard — manage targets, view status, incident timeline |
 | `backend-api/` | Target CRUD, auth, serves dashboard data |
 | `prober-worker/` | Runs scheduled health checks, publishes results to Kafka |
+| `checks-consumer/` | Consumes `checks` topic and persists checks/incidents to Postgres |
 | `ai-engine/` | Consumes metrics, predicts degradation, generates root-cause summaries |
 | `chatops-bot/` | Sends AI-annotated incident alerts to Slack/Discord |
 | `auto-remediation/` *(stretch)* | Triggers ArgoCD rollback for connected user services |
@@ -479,6 +484,7 @@ helm install postgres helm-charts/postgres -n pulsepoint
 helm install backend-api helm-charts/backend-api -n pulsepoint
 helm install frontend helm-charts/frontend -n pulsepoint
 helm install prober-worker helm-charts/prober-worker -n pulsepoint
+helm install checks-consumer helm-charts/checks-consumer -n pulsepoint
 helm install ai-engine helm-charts/ai-engine -n pulsepoint
 ```
 
