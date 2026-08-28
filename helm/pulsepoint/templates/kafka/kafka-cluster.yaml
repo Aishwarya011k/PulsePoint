@@ -1,13 +1,15 @@
 {{- if .Values.kafka.enabled }}
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: {{ .Values.kafka.clusterName }}
   namespace: {{ .Values.namespace }}
+  labels:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
 spec:
   kafka:
     version: 3.7.0
-    replicas: 1
     listeners:
       - name: plain
         port: 9092
@@ -24,28 +26,29 @@ spec:
       default.replication.factor: 1
       min.insync.replicas: 1
       num.partitions: 3
-      inter.broker.protocol.version: "3.7"
-    storage:
-      type: ephemeral
-    resources:
-      requests:
-        cpu: {{ .Values.kafka.resources.requests.cpu }}
-        memory: {{ .Values.kafka.resources.requests.memory }}
-      limits:
-        cpu: {{ .Values.kafka.resources.limits.cpu }}
-        memory: {{ .Values.kafka.resources.limits.memory }}
-  zookeeper:
-    replicas: 1
-    storage:
-      type: ephemeral
-    resources:
-      requests:
-        cpu: {{ .Values.kafka.zookeeper.resources.requests.cpu }}
-        memory: {{ .Values.kafka.zookeeper.resources.requests.memory }}
-      limits:
-        cpu: {{ .Values.kafka.zookeeper.resources.limits.cpu }}
-        memory: {{ .Values.kafka.zookeeper.resources.limits.memory }}
   entityOperator:
     topicOperator: {}
     userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: {{ .Values.kafka.clusterName }}-pool
+  namespace: {{ .Values.namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.clusterName }}
+spec:
+  replicas: 1
+  roles:
+    - broker
+    - controller
+  storage:
+    type: ephemeral
+  resources:
+    requests:
+      cpu: {{ .Values.kafka.resources.requests.cpu }}
+      memory: {{ .Values.kafka.resources.requests.memory }}
+    limits:
+      cpu: {{ .Values.kafka.resources.limits.cpu }}
+      memory: {{ .Values.kafka.resources.limits.memory }}
 {{- end }}
