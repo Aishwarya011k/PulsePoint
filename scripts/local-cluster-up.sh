@@ -32,13 +32,20 @@ kind load docker-image pulsepoint/prober-worker:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/checks-consumer:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/frontend:local --name ${CLUSTER_NAME}
 
+echo "Installing Strimzi operator for Kafka CRDs..."
+kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
+kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=available --timeout=180s
+kubectl get pods -n kafka
+
 echo "Applying Kubernetes manifests with Helm..."
 helm upgrade --install pulsepoint ./helm/pulsepoint \
   -f ./helm/pulsepoint/values-dev.yaml \
   -n pulsepoint \
   --create-namespace
 
-echo "Waiting for pods to be ready (this may take a minute)..."
+echo "Waiting for Kafka and app pods to be ready (this may take a couple minutes)..."
+kubectl wait --for=condition=ready pod -l strimzi.io/cluster=pulsepoint-kafka -n pulsepoint --timeout=240s || true
 kubectl wait --for=condition=ready pod -l app=postgres -n pulsepoint --timeout=120s || true
 kubectl wait --for=condition=ready pod -l app=backend-api -n pulsepoint --timeout=120s || true
 kubectl wait --for=condition=ready pod -l app=frontend -n pulsepoint --timeout=120s || true
