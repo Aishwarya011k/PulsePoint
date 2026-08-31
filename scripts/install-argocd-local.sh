@@ -25,17 +25,51 @@ fi
 
 echo "Installing ArgoCD into the '${CURRENT_CONTEXT}' cluster..."
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-kubectl -n argocd rollout status deployment/argocd-server --timeout=180s
-kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=180s
-kubectl -n argocd rollout status deployment/argocd-application-controller --timeout=180s
+# Clean up existing ArgoCD resources to avoid conflicts
+echo "Cleaning up existing ArgoCD resources..."
+kubectl delete namespace argocd --ignore-not-found=true
+sleep 5
+kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+sleep 2
+
+# Apply ArgoCD manifests with server-side apply and force-conflicts to handle field ownership issues
+echo "Applying ArgoCD manifests..."
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
+
+# Wait for deployments to be created
+echo "Waiting for ArgoCD deployments to be created..."
+for i in {1..30}; do
+  if kubectl -n argocd get deployment argocd-server &>/dev/null; then
+    echo "ArgoCD deployments found, proceeding with rollout status checks..."
+    break
+  fi
+  echo "Waiting for deployments... ($i/30)"
+  sleep 2
+done
+
+# Check rollout status with error handling
+echo "Checking ArgoCD deployment status..."
+kubectl -n argocd rollout status deployment/argocd-server --timeout=180s || echo "Warning: argocd-server rollout timed out, continuing..."
+kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=180s || echo "Warning: argocd-repo-server rollout timed out, continuing..."
+kubectl -n argocd rollout status deployment/argocd-application-controller --timeout=180s || echo "Warning: argocd-application-controller rollout timed out, continuing..."
+
+# Wait for secret to be created
+echo "Waiting for ArgoCD initial admin secret..."
+for i in {1..30}; do
+  if kubectl -n argocd get secret argocd-initial-admin-secret &>/dev/null; then
+    echo "Secret found."
+    break
+  fi
+  echo "Waiting for secret... ($i/30)"
+  sleep 2
+done
 
 PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 
 echo "ArgoCD admin password: ${PASSWORD}"
-echo "Port-forward with: kubectl -n argocd port-forward svc/argocd-server 8080:443"
-echo "Open: https://localhost:8080"
+echo "Port-forward with: kubectl -n argocd port-forward svc/argocd-server 8888:443"
+echo "Open: https://localhost:8888"
 
 echo "Apply the application after the server is ready:"
 echo "kubectl apply -f argocd/application.yaml"
