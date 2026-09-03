@@ -175,7 +175,48 @@ kubectl -n pulsepoint exec -it <kafka-pod-name> -- /bin/bash
 
 If the Strimzi CLI or UI is easier in your local setup, use that instead; the important part is that the raw `checks` messages remain visible for troubleshooting.
 
-> Phase 6 will eventually add Redis for the checks-consumer's recent-window state, but this phase intentionally leaves that out to keep the worker and consumer focused on the Kafka pipeline.
+### Redis Usage
+
+Starting with Phase 6, PulsePoint uses Redis for two distinct purposes:
+
+#### 1. Dashboard Response Caching
+
+The backend caches the results of dashboard reads (`GET /targets`, `GET /targets/:id`) to reduce unnecessary Postgres queries as the target count grows. Each cached response has a 10-second TTL (time-to-live):
+
+- **Cache key format:** `targets:user:{user_id}` (list), `target:{target_id}:user:{user_id}` (detail)
+- **TTL:** 10 seconds (long enough to meaningfully reduce Postgres load on a fast dashboard, short enough that updates feel responsive)
+- **Cache invalidation:** Explicit, not time-based. When a target is created, deleted, or checked manually, the relevant cache keys are immediately deleted. This ensures the dashboard never shows stale data after an explicit user action.
+
+**Verification:** Each cached response includes an `X-Cache` header indicating `HIT` or `MISS`. Watch this header while using the dashboard to confirm caching is working:
+
+```bash
+# From a browser console or curl
+curl -H "Authorization: Bearer <token>" http://localhost:8000/targets -v
+# Look for X-Cache: HIT or X-Cache: MISS in the response headers
+```
+
+#### 2. Rolling-Window State Store for AI Engine
+
+After checks-consumer persists a check result to Postgres, it also pushes the result into a Redis list that maintains a rolling window of recent checks **per target**:
+
+- **Data structure:** Redis List (LPUSH for newest, LTRIM to keep last 20)
+- **Cache key format:** `target:{target_id}:recent_checks`
+- **Content:** JSON-serialized check metadata: `{ status_code, response_time_ms, success, checked_at }`
+- **Purpose:** Phase 8's AI Engine will consume this rolling window to detect degradation trends without re-querying Postgres for every target on every evaluation cycle. This is a foundation for predictive alerting.
+
+**Debugging:** Inspect the rolling-window data with `redis-cli`:
+
+```bash
+# Port-forward Redis
+kubectl port-forward svc/redis -n pulsepoint 6379:6379
+
+# In another terminal, connect and inspect recent checks for target 1
+redis-cli
+> LRANGE target:1:recent_checks 0 -1
+# Returns the last 20 checks (newest first) for target 1
+```
+
+**Fallback:** If Redis is unreachable, both the cache and rolling-window writing silently degrade — the backend falls back to direct Postgres queries (slightly slower for reads), and the consumer still persists checks to Postgres but skips the Redis write. The system remains fully functional without Redis; it's a performance optimization, not a critical dependency.
 
 ### Deploying with Helm
 
