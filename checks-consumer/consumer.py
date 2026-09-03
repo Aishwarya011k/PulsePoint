@@ -31,7 +31,7 @@ def get_redis_client():
         )
         client.ping()
         return client
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback, Postgres remains authoritative
         logger.warning("Failed to connect to Redis: %s; rolling-window state store disabled", e)
         return None
 
@@ -67,7 +67,7 @@ def push_to_rolling_window(redis_client, target_id: int, event: dict):
         # Keep only the last 20 checks per target
         redis_client.ltrim(key, 0, 19)
         logger.debug("Pushed check to rolling window for target %s", target_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback, Postgres remains authoritative
         logger.warning("Failed to push to rolling window for target %s: %s", target_id, e)
 
 

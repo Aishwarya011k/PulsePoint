@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.cache import cache_delete, cache_delete_pattern, cache_get, cache_set
+from app.cache import cache_delete, cache_get, cache_set
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Check, Incident, IncidentStatus, Target, User

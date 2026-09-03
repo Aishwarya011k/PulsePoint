@@ -1,18 +1,19 @@
 """Redis cache client with graceful fallback to direct database queries."""
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import redis
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 # Global Redis client instance (created on first use)
-_redis_client: Optional[redis.Redis] = None
+_redis_client: redis.Redis | None = None
 
 
-def get_redis_client() -> Optional[redis.Redis]:
+def get_redis_client() -> redis.Redis | None:
     """
     Get or create a Redis client.
 
@@ -40,12 +41,12 @@ def get_redis_client() -> Optional[redis.Redis]:
         _redis_client.ping()
         logger.info("Connected to Redis")
         return _redis_client
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback to Postgres on any Redis error
         logger.warning("Failed to connect to Redis: %s; will fall back to Postgres queries", e)
         return None
 
 
-def cache_get(key: str) -> Optional[Any]:
+def cache_get(key: str) -> Any | None:
     """
     Get a value from cache.
 
@@ -67,7 +68,7 @@ def cache_get(key: str) -> Optional[Any]:
         
         logger.debug("Cache MISS for key: %s", key)
         return None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback to Postgres
         logger.warning("Error reading from cache (key=%s): %s; falling back to Postgres", key, e)
         return None
 
@@ -92,7 +93,7 @@ def cache_set(key: str, value: Any, ttl: int = 300) -> bool:
         client.setex(key, ttl, json.dumps(value))
         logger.debug("Cache SET for key: %s (TTL: %s)", key, ttl)
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback to Postgres
         logger.warning("Error writing to cache (key=%s): %s", key, e)
         return False
 
@@ -116,7 +117,7 @@ def cache_delete(key: str) -> bool:
         if result:
             logger.debug("Cache DELETE for key: %s", key)
         return result > 0
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback to Postgres
         logger.warning("Error deleting from cache (key=%s): %s", key, e)
         return False
 
@@ -145,7 +146,7 @@ def cache_delete_pattern(pattern: str) -> int:
         deleted = client.delete(*keys)
         logger.debug("Cache BULK DELETE: deleted %d keys matching pattern %s", deleted, pattern)
         return deleted
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback to Postgres
         logger.warning("Error bulk-deleting from cache (pattern=%s): %s", pattern, e)
         return 0
 
@@ -175,6 +176,6 @@ def rolling_window_push(key: str, value: Any, max_size: int = 20) -> bool:
         client.ltrim(key, 0, max_size - 1)
         logger.debug("Rolling window PUSH to key: %s (max_size: %d)", key, max_size)
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional: graceful fallback when Redis unavailable
         logger.warning("Error pushing to rolling window (key=%s): %s", key, e)
         return False
