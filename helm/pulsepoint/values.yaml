@@ -90,6 +90,20 @@ kafka:
         cpu: 300m
         memory: 512Mi
 
+redis:
+  enabled: true
+  image: redis
+  tag: "7-alpine"
+  host: redis
+  port: 6379
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 frontend:
   image:
     repository: pulsepoint/frontend
