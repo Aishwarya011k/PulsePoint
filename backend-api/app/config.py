@@ -1,5 +1,6 @@
 """Configuration management for the backend API."""
 import os
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +16,9 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite:///./pulsepoint.db"
+
+    # Redis (optional for caching)
+    redis_url: Optional[str] = None
 
     # JWT
     jwt_secret: str = "dev-secret-change-me"

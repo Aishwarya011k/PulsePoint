@@ -4,10 +4,11 @@ from time import time
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.cache import cache_delete, cache_delete_pattern, cache_get, cache_set
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Check, Incident, IncidentStatus, Target, User
@@ -124,6 +125,10 @@ def create_target(
     db.add(new_target)
     db.commit()
     db.refresh(new_target)
+    
+    # Invalidate targets list cache for this user
+    cache_delete(f"targets:user:{current_user.id}")
+    
     return new_target
 
 
@@ -131,18 +136,37 @@ def create_target(
 def list_targets(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    response: Response,
 ):
     """
     List all targets for the current user.
 
+    Results are cached per user with a 10-second TTL.
+    Check the X-Cache response header to verify caching behavior.
+
     Args:
         db: Database session
         current_user: Authenticated user
+        response: FastAPI response object for headers
 
     Returns:
         List of user's targets
     """
+    cache_key = f"targets:user:{current_user.id}"
+    
+    # Try to get from cache first
+    cached_targets = cache_get(cache_key)
+    if cached_targets is not None:
+        response.headers["X-Cache"] = "HIT"
+        return cached_targets
+    
+    # Cache miss - query database
     targets = db.query(Target).filter(Target.user_id == current_user.id).all()
+    response.headers["X-Cache"] = "MISS"
+    
+    # Store in cache with 10-second TTL
+    cache_set(cache_key, targets, ttl=10)
+    
     return targets
 
 
@@ -151,14 +175,19 @@ def get_target(
     target_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    response: Response,
 ):
     """
     Get details of a specific target including recent checks.
+
+    Results are cached per target with a 10-second TTL.
+    Check the X-Cache response header to verify caching behavior.
 
     Args:
         target_id: ID of the target
         db: Database session
         current_user: Authenticated user
+        response: FastAPI response object for headers
 
     Returns:
         Target with recent checks
@@ -166,6 +195,15 @@ def get_target(
     Raises:
         HTTPException: If target not found or not owned by user
     """
+    cache_key = f"target:{target_id}:user:{current_user.id}"
+    
+    # Try to get from cache first
+    cached_target = cache_get(cache_key)
+    if cached_target is not None:
+        response.headers["X-Cache"] = "HIT"
+        return cached_target
+    
+    # Cache miss - query database
     target = db.query(Target).filter(Target.id == target_id).first()
     if not target or target.user_id != current_user.id:
         raise HTTPException(
@@ -175,7 +213,7 @@ def get_target(
 
     recent_checks = db.query(Check).filter(Check.target_id == target_id).order_by(desc(Check.checked_at)).limit(10).all()
 
-    return TargetDetailResponse(
+    target_detail = TargetDetailResponse(
         id=target.id,
         name=target.name,
         url=target.url,
@@ -183,6 +221,13 @@ def get_target(
         created_at=target.created_at,
         recent_checks=recent_checks,
     )
+    
+    response.headers["X-Cache"] = "MISS"
+    
+    # Store in cache with 10-second TTL
+    cache_set(cache_key, target_detail, ttl=10)
+    
+    return target_detail
 
 
 @router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -211,6 +256,10 @@ def delete_target(
 
     db.delete(target)
     db.commit()
+    
+    # Invalidate both the specific target cache and the user's targets list cache
+    cache_delete(f"target:{target_id}:user:{current_user.id}")
+    cache_delete(f"targets:user:{current_user.id}")
 
 
 @router.post("/{target_id}/check-now", response_model=CheckResponse)
@@ -244,6 +293,10 @@ def manual_check(
     record_check(db, target_id, check_result)
 
     new_check = db.query(Check).filter(Check.target_id == target_id).order_by(desc(Check.checked_at)).first()
+    
+    # Invalidate the target detail cache since we just added a new check
+    cache_delete(f"target:{target_id}:user:{current_user.id}")
+    
     return new_check
 
 
