@@ -8,3 +8,4 @@ data:
   KAFKA_CHECKS_TOPIC: {{ .Values.kafka.topics.checks | quote }}
   KAFKA_CONSUMER_GROUP: {{ .Values.kafka.consumerGroup | quote }}
   KAFKA_AUTO_OFFSET_RESET: {{ .Values.kafka.autoOffsetReset | quote }}
+  REDIS_URL: {{ printf "redis://%s:%d" .Values.redis.host (int .Values.redis.port) | quote }}

@@ -7,3 +7,4 @@ data:
   API_PORT: {{ .Values.backendApi.port | quote }}
   API_HOST: {{ .Values.backendApi.host | quote }}
   CORS_ALLOWED_ORIGINS: {{ .Values.backendApi.corsAllowedOrigins | join "," | quote }}
+  REDIS_URL: {{ printf "redis://%s:%d" .Values.redis.host (int .Values.redis.port) | quote }}
