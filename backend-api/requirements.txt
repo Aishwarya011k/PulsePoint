@@ -11,6 +11,7 @@ bcrypt==4.0.1
 python-dotenv==1.0.0
 httpx==0.25.2
 pydantic[email]
+redis==5.0.1
 pytest==7.4.3
 pytest-asyncio==0.21.1
 wheel==0.46.2
