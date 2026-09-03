@@ -20,6 +20,10 @@ class Config:
     KAFKA_CHECKS_TOPIC = os.getenv("KAFKA_CHECKS_TOPIC", "checks")
     KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "pulsepoint-checks-consumer")
     KAFKA_AUTO_OFFSET_RESET = os.getenv("KAFKA_AUTO_OFFSET_RESET", "earliest")
+    REDIS_URL = os.getenv(
+        "REDIS_URL",
+        "redis://redis:6379",
+    )
 
 
 config = Config()

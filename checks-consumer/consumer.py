@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
+import redis
 from config import config
 from confluent_kafka import Consumer, KafkaError
 from database import Check, Incident, IncidentStatus, SessionLocal, Target
@@ -13,6 +14,61 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+
+def get_redis_client():
+    """
+    Get Redis client for caching recent checks.
+
+    Returns gracefully None if Redis is unavailable.
+    """
+    try:
+        client = redis.from_url(
+            config.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        client.ping()
+        return client
+    except Exception as e:
+        logger.warning("Failed to connect to Redis: %s; rolling-window state store disabled", e)
+        return None
+
+
+def push_to_rolling_window(redis_client, target_id: int, event: dict):
+    """
+    Push check result to a Redis rolling-window list per target.
+
+    Uses LPUSH to add new checks to the left, and LTRIM to keep only the last 20.
+    This creates a bounded list of recent checks that Phase 8's AI Engine can consume
+    without re-querying Postgres for every target on every evaluation cycle.
+
+    Key naming: target:{target_id}:recent_checks
+
+    Args:
+        redis_client: Redis client instance (or None if unavailable)
+        target_id: ID of the target
+        event: Check event data (status_code, response_time_ms, success, checked_at)
+    """
+    if redis_client is None:
+        return
+
+    try:
+        key = f"target:{target_id}:recent_checks"
+        # Store just the essential check data (not the entire event)
+        check_data = {
+            "status_code": event["status_code"],
+            "response_time_ms": event["response_time_ms"],
+            "success": event["success"],
+            "checked_at": event["checked_at"],
+        }
+        redis_client.lpush(key, json.dumps(check_data))
+        # Keep only the last 20 checks per target
+        redis_client.ltrim(key, 0, 19)
+        logger.debug("Pushed check to rolling window for target %s", target_id)
+    except Exception as e:
+        logger.warning("Failed to push to rolling window for target %s: %s", target_id, e)
 
 
 def apply_check_event(session, target, event: dict, previous_success: bool):
@@ -60,6 +116,8 @@ def apply_check_event(session, target, event: dict, previous_success: bool):
 def consume_checks():
     """Read check events from Kafka and store them in Postgres."""
     logger.info("Starting checks consumer")
+    redis_client = get_redis_client()
+    
     consumer = Consumer({
         "bootstrap.servers": config.KAFKA_BOOTSTRAP_SERVERS,
         "group.id": config.KAFKA_CONSUMER_GROUP,
@@ -100,6 +158,11 @@ def consume_checks():
                     result["incident_opened"],
                     result["incident_resolved"],
                 )
+                
+                # After Postgres commit, push to Redis rolling-window store
+                # This allows Phase 8's AI Engine to consume recent trends without re-querying Postgres
+                push_to_rolling_window(redis_client, target_id, event)
+                
                 consumer.commit(asynchronous=False)
             except Exception:  # pragma: no cover - defensive logging path
                 logger.exception("Error processing event for target %s", event.get("target_id"))
