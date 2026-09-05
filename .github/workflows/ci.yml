@@ -220,10 +220,38 @@ jobs:
           echo "Frontend tests would run here with: npm test"
           echo "Currently no test file exists for frontend; add tests when ready"
 
+  helm-validate:
+    name: Helm - Validate Kafka and Redis resources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Lint Helm chart
+        run: helm lint ./helm/pulsepoint -f ./helm/pulsepoint/values-dev.yaml
+
+      - name: Render Helm chart
+        run: helm template pulsepoint ./helm/pulsepoint -f ./helm/pulsepoint/values-dev.yaml > /tmp/pulsepoint-rendered.yaml
+
+      - name: Verify Kafka and Redis resources are rendered
+        run: |
+          grep -q 'kind: Kafka$' /tmp/pulsepoint-rendered.yaml
+          grep -q 'kind: KafkaNodePool$' /tmp/pulsepoint-rendered.yaml
+          grep -q 'name: redis$' /tmp/pulsepoint-rendered.yaml
+          grep -q 'image: redis:7-alpine$' /tmp/pulsepoint-rendered.yaml
+          grep -q 'REDIS_URL: "redis://redis:6379"' /tmp/pulsepoint-rendered.yaml
+
   build-push:
     name: Build & Push Images
     runs-on: ubuntu-latest
-    needs: [backend-test, prober-test, checks-consumer-test, frontend-test]
+    needs: [backend-test, prober-test, checks-consumer-test, frontend-test, helm-validate]
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
