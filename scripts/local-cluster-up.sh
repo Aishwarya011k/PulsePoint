@@ -47,6 +47,7 @@ helm upgrade --install pulsepoint ./helm/pulsepoint \
 echo "Waiting for Kafka and app pods to be ready (this may take a couple minutes)..."
 kubectl wait --for=condition=ready pod -l strimzi.io/cluster=pulsepoint-kafka -n pulsepoint --timeout=240s || true
 kubectl wait --for=condition=ready pod -l app=postgres -n pulsepoint --timeout=120s || true
+kubectl wait --for=condition=available deployment/redis -n pulsepoint --timeout=120s || true
 kubectl wait --for=condition=ready pod -l app=backend-api -n pulsepoint --timeout=120s || true
 kubectl wait --for=condition=ready pod -l app=frontend -n pulsepoint --timeout=120s || true
 
