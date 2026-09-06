@@ -555,7 +555,7 @@ Full setup guide: [`docs/setup.md`](docs/setup.md)
 - [x] GitOps deployment via ArgoCD (Phase 4)
 - [x] Dedicated manifests repo for ArgoCD (Phase 4)
 - [x] Kafka-based event pipeline for checks
-- [ ] Redis caching + AI rolling-window state
+- [x] Redis caching + AI rolling-window state
 - [ ] Prometheus + Grafana + Loki observability
 - [ ] AI trend/anomaly detection engine
 - [ ] LLM-based root-cause summarization
