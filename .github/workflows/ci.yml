@@ -377,18 +377,26 @@ jobs:
           SHORT_SHA: ${{ github.sha }}
         run: |
           cd pulsepoint-manifests
+          echo "DEBUG: SHORT_SHA is '$SHORT_SHA'"
           python - <<'PY'
           from pathlib import Path
           import os
           import yaml
 
           sha = os.environ["SHORT_SHA"][:7]
+          if not sha or not sha.strip():
+              raise SystemExit("SHORT_SHA is empty — refusing to write manifests with a blank image tag")
+
           values_path = Path("dev/values.yaml")
           data = yaml.safe_load(values_path.read_text())
 
+          # NOTE: checksConsumer was missing here previously — every push silently
+          # left checks-consumer's deployed image tag stale. Keep this dict in sync
+          # with every service that has its own Dockerfile/image in build-push's matrix.
           required = {
               "backendApi": ["image", "tag"],
               "proberWorker": ["image", "tag"],
+              "checksConsumer": ["image", "tag"],
               "frontend": ["image", "tag"],
           }
 
