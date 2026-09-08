@@ -153,6 +153,68 @@ kubectl get svc -n pulsepoint
 
 ---
 
+## Cluster Bootstrap Order (IMPORTANT)
+
+If the `kind` cluster is ever deleted and recreated, the following must be installed
+in this order before `helm install` or `helm upgrade` will succeed:
+
+1. Create the kind cluster:
+  `kind create cluster --name pulsepoint --config scripts/kind-cluster-config.yaml`
+2. Create the namespace: `kubectl create namespace pulsepoint`
+3. Install the Strimzi Operator (provides Kafka CRDs):
+  `kubectl create -f 'https://strimzi.io/install/latest?namespace=pulsepoint' -n pulsepoint --server-side`
+4. Wait for the operator to be ready:
+  `kubectl get pods -n pulsepoint -l name=strimzi-cluster-operator -w`
+5. Install ArgoCD: `bash scripts/install-argocd-local.sh`
+6. Only now install the application chart:
+  `helm upgrade --install pulsepoint ./helm/pulsepoint -f ./helm/pulsepoint/values-dev.yaml -n pulsepoint`
+7. Recreate the ArgoCD Application resource:
+  `kubectl apply -f argocd/application.yaml`
+
+Skipping steps 3-5 leaves the Kafka and KafkaTopic resources unreconciled, so no
+broker pods are created. ArgoCD commands can also fail with misleading `not found`
+or `permission denied` errors when its namespace and CRDs are missing.
+
+## Resetting the ArgoCD Admin Password
+
+If login fails with `Invalid username or password` after a fresh install or cluster
+recreation, reset it deterministically instead of reusing an old password:
+
+1. Generate a fresh bcrypt hash with ArgoCD:
+  `argocd account bcrypt --password '<your-chosen-password>'`
+2. Patch both fields separately, pasting the hash from step 1 and using a current timestamp:
+
+  ```bash
+  kubectl -n argocd patch secret argocd-secret -p '{"stringData": {
+    "admin.password": "<paste-hash-from-step-1>",
+    "admin.passwordMtime": "2026-09-08T00:00:00Z"
+  }}'
+  ```
+
+3. Restart the server:
+  `kubectl -n argocd rollout restart deployment argocd-server`
+4. Verify the fields are stored separately and are not concatenated:
+
+  ```bash
+  kubectl -n argocd get secret argocd-secret -o jsonpath='{.data.admin\.password}' | base64 -d
+  kubectl -n argocd get secret argocd-secret -o jsonpath='{.data.admin\.passwordMtime}' | base64 -d
+  ```
+
+The first command must print only the bcrypt hash and the second only the timestamp.
+Record the chosen password in a password manager; do not rely on
+`argocd-initial-admin-secret`, which is removed after the first password change and
+is regenerated after each fresh install.
+
+## Troubleshooting: ArgoCD port-forward keeps dropping
+
+`kubectl port-forward` stays alive only while its process runs in the foreground of
+its dedicated terminal. Keep that terminal separate from other commands. A rollout
+restart of `argocd-server` immediately breaks the existing tunnel because its pod is
+replaced, so restart the port-forward afterward. If a command targeting
+`localhost:8888` fails with `connection refused`, check that terminal first.
+
+---
+
 ### Kafka Event Pipeline
 
 PulsePoint now uses Kafka as the event backbone between the Prober Worker and Postgres. The flow is:
@@ -341,7 +403,7 @@ Install ArgoCD in the local cluster:
 
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side
 ```
 
 Get the initial admin password:
@@ -353,10 +415,10 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 Then port-forward the ArgoCD API server locally:
 
 ```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
+kubectl -n argocd port-forward svc/argocd-server 8888:443
 ```
 
-Open `https://localhost:8080` in a browser, log in as `admin`, and change the password when prompted.
+Open `https://localhost:8888` in a browser and log in as `admin`.
 
 #### Manual sync and verification
 
@@ -532,7 +594,7 @@ helm install ai-engine helm-charts/ai-engine -n pulsepoint
 ### 5. (Optional) Set up ArgoCD for GitOps deployment
 ```bash
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side
 kubectl apply -f argocd/application-sets.yaml
 ```
 

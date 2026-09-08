@@ -4,7 +4,7 @@ kind: Kafka
 metadata:
   name: {{ .Values.kafka.clusterName }}
   namespace: {{ .Values.namespace }}
-  labels:
+  annotations:
     strimzi.io/node-pools: enabled
     strimzi.io/kraft: enabled
 spec:
@@ -35,7 +35,7 @@ kind: KafkaNodePool
 metadata:
   name: {{ .Values.kafka.clusterName }}-pool
   namespace: {{ .Values.namespace }}
-  labels:
+  annotations:
     strimzi.io/cluster: {{ .Values.kafka.clusterName }}
 spec:
   replicas: 1

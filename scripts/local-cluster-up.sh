@@ -32,17 +32,30 @@ kind load docker-image pulsepoint/prober-worker:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/checks-consumer:local --name ${CLUSTER_NAME}
 kind load docker-image pulsepoint/frontend:local --name ${CLUSTER_NAME}
 
+kubectl create namespace pulsepoint --dry-run=client -o yaml | kubectl apply -f -
+
 echo "Installing Strimzi operator for Kafka CRDs..."
-kubectl create namespace kafka --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
-kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=available --timeout=180s
-kubectl get pods -n kafka
+if ! kubectl get deployment/strimzi-cluster-operator -n pulsepoint >/dev/null 2>&1; then
+  kubectl apply -f "https://strimzi.io/install/latest?namespace=pulsepoint" -n pulsepoint --server-side
+fi
+kubectl wait deployment/strimzi-cluster-operator -n pulsepoint --for=condition=available --timeout=180s
+kubectl get pods -n pulsepoint -l name=strimzi-cluster-operator
+
+echo "Installing ArgoCD..."
+if ! kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
+  bash scripts/install-argocd-local.sh
+else
+  kubectl wait deployment/argocd-server -n argocd --for=condition=available --timeout=180s
+fi
 
 echo "Applying Kubernetes manifests with Helm..."
 helm upgrade --install pulsepoint ./helm/pulsepoint \
   -f ./helm/pulsepoint/values-dev.yaml \
   -n pulsepoint \
   --create-namespace
+
+echo "Applying the ArgoCD Application resource..."
+kubectl apply -f argocd/application.yaml
 
 echo "Waiting for Kafka and app pods to be ready (this may take a couple minutes)..."
 kubectl wait --for=condition=ready pod -l strimzi.io/cluster=pulsepoint-kafka -n pulsepoint --timeout=240s || true
