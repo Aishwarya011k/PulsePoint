@@ -4,7 +4,7 @@ kind: KafkaTopic
 metadata:
   name: {{ .Values.kafka.topics.checks }}
   namespace: {{ .Values.namespace }}
-  annotations:
+  labels:
     strimzi.io/cluster: {{ .Values.kafka.clusterName }}
 spec:
   partitions: 3
@@ -17,7 +17,7 @@ kind: KafkaTopic
 metadata:
   name: {{ .Values.kafka.topics.metrics }}
   namespace: {{ .Values.namespace }}
-  annotations:
+  labels:
     strimzi.io/cluster: {{ .Values.kafka.clusterName }}
 spec:
   partitions: 3
@@ -30,7 +30,7 @@ kind: KafkaTopic
 metadata:
   name: {{ .Values.kafka.topics.incidents }}
   namespace: {{ .Values.namespace }}
-  annotations:
+  labels:
     strimzi.io/cluster: {{ .Values.kafka.clusterName }}
 spec:
   partitions: 3
