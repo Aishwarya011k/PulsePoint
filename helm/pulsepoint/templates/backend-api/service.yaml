@@ -8,5 +8,6 @@ spec:
   selector:
     app: backend-api
   ports:
-    - port: {{ .Values.backendApi.port }}
-      targetPort: {{ .Values.backendApi.port }}
+    - name: http
+      port: {{ .Values.backendApi.port }}
+      targetPort: http

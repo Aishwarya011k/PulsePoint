@@ -16,6 +16,9 @@ spec:
       containers:
         - name: checks-consumer
           image: {{ .Values.checksConsumer.image.repository }}:{{ .Values.checksConsumer.image.tag }}
+          ports:
+            - containerPort: {{ .Values.checksConsumer.metricsPort }}
+              name: metrics
           envFrom:
             - secretRef:
                 name: checks-consumer-secret

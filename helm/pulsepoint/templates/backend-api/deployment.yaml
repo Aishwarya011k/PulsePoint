@@ -18,6 +18,7 @@ spec:
           image: {{ .Values.backendApi.image.repository }}:{{ .Values.backendApi.image.tag }}
           ports:
             - containerPort: {{ .Values.backendApi.port }}
+              name: http
           envFrom:
             - secretRef:
                 name: backend-secret

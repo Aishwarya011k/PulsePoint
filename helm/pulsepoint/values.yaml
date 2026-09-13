@@ -20,6 +20,7 @@ backendApi:
     tag: local
   replicas: 2
   port: 8000
+  metricsPort: 8000
   host: "0.0.0.0"
   resources:
     requests:
@@ -40,6 +41,7 @@ proberWorker:
     repository: pulsepoint/prober-worker
     tag: local
   replicas: 1
+  metricsPort: 9000
   resources:
     requests:
       cpu: 100m
@@ -56,6 +58,7 @@ checksConsumer:
     repository: pulsepoint/checks-consumer
     tag: local
   replicas: 1
+  metricsPort: 9001
   resources:
     requests:
       cpu: 100m
@@ -103,6 +106,9 @@ redis:
     limits:
       cpu: 200m
       memory: 128Mi
+
+monitoring:
+  namespace: monitoring
 
 frontend:
   image:

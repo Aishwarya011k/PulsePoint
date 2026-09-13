@@ -16,6 +16,9 @@ spec:
       containers:
         - name: prober-worker
           image: {{ .Values.proberWorker.image.repository }}:{{ .Values.proberWorker.image.tag }}
+          ports:
+            - containerPort: {{ .Values.proberWorker.metricsPort }}
+              name: metrics
           envFrom:
             - secretRef:
                 name: prober-secret
