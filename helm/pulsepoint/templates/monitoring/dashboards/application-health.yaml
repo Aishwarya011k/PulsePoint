@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pulsepoint-application-health-dashboard
+  namespace: {{ .Values.monitoring.namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  pulsepoint-application-health.json: |-
+    {
+      "title": "PulsePoint - Application Health",
+      "uid": "pulsepoint-application-health",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"},
+      "panels": [
+        {"id": 1, "type": "timeseries", "title": "Backend request rate", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum(rate(pulsepoint_api_requests_total[5m]))", "legendFormat": "requests/sec"}]},
+        {"id": 2, "type": "timeseries", "title": "Backend p95 latency", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "histogram_quantile(0.95, sum(rate(pulsepoint_api_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}]},
+        {"id": 3, "type": "timeseries", "title": "Checks performed", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"expr": "sum(rate(pulsepoint_checks_performed_total[5m]))", "legendFormat": "checks/sec"}]},
+        {"id": 4, "type": "timeseries", "title": "Consumer throughput", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"expr": "sum(rate(pulsepoint_consumer_messages_consumed_total[5m]))", "legendFormat": "messages/sec"}]},
+        {"id": 5, "type": "stat", "title": "Registered targets", "gridPos": {"h": 6, "w": 8, "x": 0, "y": 16}, "targets": [{"expr": "pulsepoint_registered_targets"}]},
+        {"id": 6, "type": "stat", "title": "Open incidents", "gridPos": {"h": 6, "w": 8, "x": 8, "y": 16}, "targets": [{"expr": "pulsepoint_open_incidents"}]},
+        {"id": 7, "type": "timeseries", "title": "Pod CPU usage", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16}, "targets": [{"expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"pulsepoint\", container!=\"POD\", container!=\"\"}[5m]))", "legendFormat": "pod {{"{{pod}}"}}"}]},
+        {"id": 8, "type": "timeseries", "title": "Pod memory usage", "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24}, "targets": [{"expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"pulsepoint\", container!=\"POD\", container!=\"\"})", "legendFormat": "pod {{"{{pod}}"}}"}]}
+      ]
+    }
