@@ -166,14 +166,69 @@ in this order before `helm install` or `helm upgrade` will succeed:
 4. Wait for the operator to be ready:
   `kubectl get pods -n pulsepoint -l name=strimzi-cluster-operator -w`
 5. Install ArgoCD: `bash scripts/install-argocd-local.sh`
-6. Only now install the application chart:
+6. Install monitoring infrastructure: `bash scripts/install-monitoring-local.sh`
+7. Only now install the application chart:
   `helm upgrade --install pulsepoint ./helm/pulsepoint -f ./helm/pulsepoint/values-dev.yaml -n pulsepoint`
-7. Recreate the ArgoCD Application resource:
+8. Recreate the ArgoCD Application resource:
   `kubectl apply -f argocd/application.yaml`
 
 Skipping steps 3-5 leaves the Kafka and KafkaTopic resources unreconciled, so no
 broker pods are created. ArgoCD commands can also fail with misleading `not found`
 or `permission denied` errors when its namespace and CRDs are missing.
+
+## Observability
+
+Prometheus, Grafana, Loki, and Promtail run in the separate `monitoring` namespace
+because they are cluster-level infrastructure. The application chart stays in
+`pulsepoint` and creates ServiceMonitors that select its three metrics Services.
+
+Install the local stack after Strimzi and ArgoCD are ready:
+
+```bash
+bash scripts/install-monitoring-local.sh
+```
+
+The install uses 12-hour Prometheus retention, 48-hour Loki retention,
+30-second scraping, conservative pod resources, and no node-exporter. Grafana
+is available at http://localhost:3000 after:
+
+```bash
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
+```
+
+Log in to a fresh local install with `admin` / `pulsepoint-local`, then change
+the password for any shared or persistent cluster. Prometheus is available for
+scrape debugging at http://localhost:9090:
+
+```bash
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090
+```
+
+Use Prometheus **Status > Targets** to confirm `backend-api`, `prober-worker`,
+and `checks-consumer` are `UP`. In Grafana, **PulsePoint - Application Health**
+shows API rate and latency, worker checks, consumer throughput, target and
+incident counts, and pod CPU/memory. **PulsePoint - Target Monitoring** shows
+per-target uptime, response time, check outcomes, and open incidents. Use
+Grafana **Explore**, select `Loki`, and query `{namespace="pulsepoint"}` for
+centralized service logs.
+
+For a memory-constrained machine, uninstall the stack when it is not needed:
+
+```bash
+helm uninstall loki -n monitoring
+helm uninstall kube-prometheus-stack -n monitoring
+```
+
+The script can be made lighter by changing Prometheus retention to `6h` and its
+memory limit to `384Mi`; `nodeExporter.enabled=false` is already set.
+
+Verify the actual scrape and log paths after the application chart syncs:
+
+```bash
+kubectl -n monitoring get servicemonitors
+curl -s http://localhost:9090/api/v1/targets | grep -E 'backend-api|prober-worker|checks-consumer'
+kubectl -n monitoring logs daemonset/loki-promtail | grep pulsepoint
+```
 
 ## Resetting the ArgoCD Admin Password
 

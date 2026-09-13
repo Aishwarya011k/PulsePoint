@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 
 from app.database import Base, engine
+from app.metrics import REQUEST_LATENCY, REQUESTS, metrics_app
 from app.routes_auth import router as auth_router
 from app.routes_internal import router as internal_router
 from app.routes_targets import router as targets_router
-from app.metrics import REQUESTS, REQUEST_LATENCY, metrics_app
 from app.websocket_manager import manager
 
 

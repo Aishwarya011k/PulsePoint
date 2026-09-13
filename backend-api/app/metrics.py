@@ -1,8 +1,12 @@
 """Prometheus metrics for the backend API."""
+import logging
+
 from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 
 from app.database import SessionLocal
 from app.models import Incident, IncidentStatus, Target
+
+logger = logging.getLogger(__name__)
 
 REQUESTS = Counter(
     "pulsepoint_api_requests_total",
@@ -32,8 +36,8 @@ def refresh_database_metrics() -> None:
         OPEN_INCIDENTS.set(
             session.query(Incident).filter(Incident.status == IncidentStatus.OPEN).count()
         )
-    except Exception:  # noqa: BLE001 - metrics must never affect API traffic
-        pass
+    except Exception:
+        logger.debug("Unable to refresh database metrics", exc_info=True)
     finally:
         session.close()
 

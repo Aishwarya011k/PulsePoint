@@ -16,7 +16,7 @@ data:
       "time": {"from": "now-6h", "to": "now"},
       "panels": [
         {"id": 1, "type": "timeseries", "title": "Uptime by target", "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "100 * sum by (target_id) (rate(pulsepoint_checks_result_total{result=\"success\"}[15m])) / sum by (target_id) (rate(pulsepoint_checks_result_total[15m]))", "legendFormat": "target {{"{{target_id}}"}}"}]},
-        {"id": 2, "type": "timeseries", "title": "Response time by target", "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "pulsepoint_check_duration_seconds", "legendFormat": "target {{"{{target_id}}"}}"}]},
+        {"id": 2, "type": "timeseries", "title": "Response time by target", "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "histogram_quantile(0.95, sum by (target_id, le) (rate(pulsepoint_check_duration_seconds_bucket[15m])))", "legendFormat": "target {{"{{target_id}}"}} p95"}]},
         {"id": 3, "type": "stat", "title": "Open incidents", "gridPos": {"h": 6, "w": 8, "x": 0, "y": 9}, "targets": [{"expr": "pulsepoint_open_incidents"}]},
         {"id": 4, "type": "stat", "title": "Registered targets", "gridPos": {"h": 6, "w": 8, "x": 8, "y": 9}, "targets": [{"expr": "pulsepoint_registered_targets"}]},
         {"id": 5, "type": "timeseries", "title": "Check outcomes", "gridPos": {"h": 9, "w": 8, "x": 16, "y": 9}, "targets": [{"expr": "sum by (result) (rate(pulsepoint_checks_result_total[5m]))", "legendFormat": "{{"{{result}}"}}"}]}
