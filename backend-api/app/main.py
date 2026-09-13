@@ -1,4 +1,6 @@
 """Main FastAPI application."""
+import time
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
@@ -7,6 +9,7 @@ from app.database import Base, engine
 from app.routes_auth import router as auth_router
 from app.routes_internal import router as internal_router
 from app.routes_targets import router as targets_router
+from app.metrics import REQUESTS, REQUEST_LATENCY, metrics_app
 from app.websocket_manager import manager
 
 
@@ -40,10 +43,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def observe_requests(request, call_next):
+    """Record request volume and latency without changing response behavior."""
+    started = time.perf_counter()
+    response = await call_next(request)
+    path = request.url.path
+    REQUESTS.labels(request.method, path, str(response.status_code)).inc()
+    REQUEST_LATENCY.labels(request.method, path).observe(time.perf_counter() - started)
+    return response
+
 # Include routers
 app.include_router(auth_router)
 app.include_router(targets_router)
 app.include_router(internal_router)
+app.mount("/metrics", metrics_app())
 
 
 @app.websocket("/ws/targets")
