@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from config import config
 from confluent_kafka import Producer
 from database import Check, SessionLocal, Target
+from prometheus_client import Counter, Histogram, start_http_server
 from sqlalchemy import desc
 
 # Configure logging
@@ -17,6 +18,21 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+CHECKS_PERFORMED = Counter(
+    "pulsepoint_checks_performed_total",
+    "Total health checks performed by the prober worker.",
+)
+CHECKS_BY_RESULT = Counter(
+    "pulsepoint_checks_result_total",
+    "Health checks grouped by success or failure.",
+    ["result", "target_id"],
+)
+CHECK_DURATION = Histogram(
+    "pulsepoint_check_duration_seconds",
+    "Health check duration in seconds.",
+    ["target_id"],
+)
 
 
 def build_check_event(target_id: int, check_result: dict) -> dict:
@@ -51,7 +67,7 @@ def publish_check_event(event: dict):
         producer.flush()
 
 
-def perform_check(url: str) -> dict:
+def perform_check(url: str, target_id: int | None = None) -> dict:
     """
     Perform an HTTP health check on a URL.
     
@@ -61,6 +77,8 @@ def perform_check(url: str) -> dict:
     Returns:
         Dictionary with status_code, response_time_ms, and success
     """
+    started = time.perf_counter()
+    result = None
     try:
         start_time = time.time()
         with httpx.Client(timeout=config.HTTP_TIMEOUT_SECONDS) as client:
@@ -75,25 +93,36 @@ def perform_check(url: str) -> dict:
             f"time={response_time_ms:.1f}ms"
         )
         
-        return {
+        result = {
             "status_code": response.status_code,
             "response_time_ms": response_time_ms,
             "success": success,
         }
+        return result
     except httpx.TimeoutException:
         logger.warning(f"Check timeout for {url}")
-        return {
+        result = {
             "status_code": 0,
             "response_time_ms": config.HTTP_TIMEOUT_SECONDS * 1000,
             "success": False,
         }
+        return result
     except httpx.HTTPError as exc:
         logger.error(f"Check failed for {url}: {exc}")
-        return {
+        result = {
             "status_code": 0,
             "response_time_ms": 0,
             "success": False,
         }
+        return result
+    finally:
+        CHECKS_PERFORMED.inc()
+        target_label = str(target_id) if target_id is not None else "unknown"
+        if result is not None:
+            CHECKS_BY_RESULT.labels(
+                "success" if result["success"] else "failure", target_label
+            ).inc()
+        CHECK_DURATION.labels(target_label).observe(time.perf_counter() - started)
 
 
 def record_check(db, target_id: int, check_result: dict):
@@ -143,7 +172,7 @@ def check_targets():
             
             if needs_check:
                 logger.info(f"Checking target {target.id}: {target.name} ({target.url})")
-                check_result = perform_check(target.url)
+                check_result = perform_check(target.url, target.id)
                 record_check(db, target.id, check_result)
             else:
                 logger.debug(
@@ -161,6 +190,7 @@ def check_targets():
 def start_worker():
     """Start the prober worker with APScheduler."""
     logger.info("Starting PulsePoint Prober Worker")
+    start_http_server(9000)
     
     # Create scheduler
     scheduler = BackgroundScheduler()
