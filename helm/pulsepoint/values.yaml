@@ -108,7 +108,9 @@ redis:
       memory: 128Mi
 
 monitoring:
+  enabled: true
   namespace: monitoring
+  scrapeInterval: 30s
 
 frontend:
   image:
