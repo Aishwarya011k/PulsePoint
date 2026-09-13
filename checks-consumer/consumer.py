@@ -1,12 +1,14 @@
 """Consume check events from Kafka and persist them to Postgres."""
 import json
 import logging
+import time
 from datetime import UTC, datetime
 
 import redis
 from config import config
 from confluent_kafka import Consumer, KafkaError
 from database import Check, Incident, IncidentStatus, SessionLocal, Target
+from prometheus_client import Counter, Histogram, start_http_server
 from sqlalchemy import desc
 
 logging.basicConfig(
@@ -14,6 +16,15 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+MESSAGES_CONSUMED = Counter(
+    "pulsepoint_consumer_messages_consumed_total",
+    "Total check messages consumed from Kafka.",
+)
+POSTGRES_WRITE_DURATION = Histogram(
+    "pulsepoint_consumer_postgres_write_duration_seconds",
+    "Time spent persisting check events to Postgres.",
+)
 
 
 def get_redis_client():
@@ -116,6 +127,7 @@ def apply_check_event(session, target, event: dict, previous_success: bool):
 def consume_checks():
     """Read check events from Kafka and store them in Postgres."""
     logger.info("Starting checks consumer")
+    start_http_server(9001)
     redis_client = get_redis_client()
     
     consumer = Consumer({
@@ -138,6 +150,7 @@ def consume_checks():
                 continue
 
             event = json.loads(message.value().decode("utf-8"))
+            MESSAGES_CONSUMED.inc()
             session = SessionLocal()
             try:
                 target_id = event["target_id"]
@@ -151,7 +164,9 @@ def consume_checks():
                 ).order_by(desc(Check.checked_at)).first()
                 previous_success = previous_check.success if previous_check else True
 
+                write_started = time.perf_counter()
                 result = apply_check_event(session, target, event, previous_success)
+                POSTGRES_WRITE_DURATION.observe(time.perf_counter() - write_started)
                 logger.info(
                     "Stored check for target %s; incident_opened=%s incident_resolved=%s",
                     target_id,
