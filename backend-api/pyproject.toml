@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "PulsePoint Phase 1 Backend API"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.104.1",
+    "fastapi==0.115.6",
     "uvicorn[standard]==0.24.0",
     "sqlalchemy==2.0.23",
     "alembic==1.12.1",
