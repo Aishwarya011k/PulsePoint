@@ -20,6 +20,7 @@ dependencies = [
     "bcrypt==4.0.1",
     "python-dotenv==1.0.0",
     "httpx==0.25.2",
+    "anyio==4.14.2",
 ]
 
 [project.optional-dependencies]
