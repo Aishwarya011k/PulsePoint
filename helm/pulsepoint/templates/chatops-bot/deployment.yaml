@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatops-bot
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.chatopsBot.replicas }}
+  selector:
+    matchLabels:
+      app: chatops-bot
+  template:
+    metadata:
+      labels:
+        app: chatops-bot
+    spec:
+      containers:
+        - name: chatops-bot
+          image: {{ .Values.chatopsBot.image.repository }}:{{ .Values.chatopsBot.image.tag }}
+          ports:
+            - containerPort: {{ .Values.chatopsBot.metricsPort }}
+              name: metrics
+          envFrom:
+            - secretRef:
+                name: chatops-bot-secret
+            - configMapRef:
+                name: chatops-bot-config
+          resources:
+            requests:
+              cpu: {{ .Values.chatopsBot.resources.requests.cpu }}
+              memory: {{ .Values.chatopsBot.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.chatopsBot.resources.limits.cpu }}
+              memory: {{ .Values.chatopsBot.resources.limits.memory }}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-engine
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ai-engine
+spec:
+  selector:
+    app: ai-engine
+  ports:
+    - name: metrics
+      port: {{ .Values.aiEngine.metricsPort }}
+      targetPort: metrics

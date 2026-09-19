@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatops-bot
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: chatops-bot
+spec:
+  selector:
+    app: chatops-bot
+  ports:
+    - name: metrics
+      port: {{ .Values.chatopsBot.metricsPort }}
+      targetPort: metrics

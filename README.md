@@ -59,7 +59,9 @@ Full architecture write-up with diagrams: [`docs/architecture.md`](docs/architec
 1. **backend-api/** — FastAPI REST API (Python)
 2. **prober-worker/** — Background health check scheduler (Python) — publishes check events to Kafka
 3. **checks-consumer/** — Consumer that reads the `checks` topic and persists checks/incidents to Postgres
-4. **frontend/** — React + Vite dashboard (TypeScript)
+4. **ai-engine/** — Lightweight Redis-window trend detector that publishes explained anomalies to `incidents`
+5. **chatops-bot/** — Slack consumer for AI incident alerts
+6. **frontend/** — React + Vite dashboard (TypeScript)
 
 ### Prerequisites
 
@@ -171,6 +173,10 @@ in this order before `helm install` or `helm upgrade` will succeed:
   `helm upgrade --install pulsepoint ./helm/pulsepoint -f ./helm/pulsepoint/values-dev.yaml -n pulsepoint`
 8. Recreate the ArgoCD Application resource:
   `kubectl apply -f argocd/application.yaml`
+9. Configure the optional AI and ChatOps secrets through GitOps values:
+  `--set aiEngine.secrets.anthropicApiKey="$ANTHROPIC_API_KEY" --set chatopsBot.secrets.slackWebhookUrl="$SLACK_WEBHOOK_URL"`
+10. Register PulsePoint's own health endpoint after the backend is reachable:
+  `API_BASE_URL=http://localhost:8000 ./scripts/register-self-targets.sh`
 
 Skipping steps 3-5 leaves the Kafka and KafkaTopic resources unreconciled, so no
 broker pods are created. ArgoCD commands can also fail with misleading `not found`
@@ -278,7 +284,19 @@ PulsePoint now uses Kafka as the event backbone between the Prober Worker and Po
 Prober Worker -> Kafka checks topic -> checks-consumer -> Postgres checks/incidents tables
 ```
 
-This keeps the probe loop focused on network checks and timing, while the consumer owns the database writes and incident transition logic. The `metrics` and `incidents` topics are created up front for Phase 8, but they are not consumed by the app yet.
+This keeps the probe loop focused on network checks and timing, while the consumer owns the database writes and incident transition logic. The AI Engine consumes `checks`, reads the existing Redis rolling window, and publishes deduplicated predictive anomalies to `incidents`; the ChatOps bot consumes those events.
+
+### AI Engine
+
+The AI Engine uses an explainable, resource-light detector. It compares the newest successful response time with the mean and standard deviation of older checks in the target's 20-check Redis window, and flags a latency spike when it exceeds the configured z-score threshold. It also flags a rising failure rate when more than 30% of the newest five checks fail. Each event includes the raw window, confidence, severity, and detector details.
+
+Redis cooldown keys use `SET NX` with a 15-minute TTL by default, so a sustained problem does not produce one alert per check. The summarizer queries Loki for a bounded recent log excerpt associated with the target and calls Anthropic when `ANTHROPIC_API_KEY` is configured. The summary is carried on the Kafka incident event; the existing Postgres `checks`, `targets`, and `incidents` schema is unchanged. Provider failures do not block detection; the Kafka incident contains `AI summary unavailable` instead.
+
+### ChatOps Alerting
+
+The ChatOps bot consumes `incidents` and posts a Slack webhook message containing target ID/name, anomaly type, severity, confidence, summary, and the dashboard link. Set `chatopsBot.secrets.slackWebhookUrl` in the GitOps values repo. An empty webhook is valid for local development: incidents remain in Kafka and the bot logs that delivery is disabled.
+
+For the portfolio demo, register the self target, point a target at the Phase 1 `flaky_server.py`, gradually increase its latency or failure rate, then inspect `kubectl logs deployment/ai-engine`, the `incidents` topic, and the Slack channel. Both new images are built by CI and deployed through the existing ArgoCD manifest update loop.
 
 For local debugging, you can inspect Kafka from the Strimzi-managed broker pod:
 
@@ -358,6 +376,8 @@ helm/pulsepoint/
     ├── backend-api/        # Backend API deployment, service, secret, configmap
     ├── prober-worker/      # Prober worker deployment, secret, configmap
     ├── checks-consumer/    # Checks consumer deployment, configmap, secret
+    ├── ai-engine/          # Predictive detector deployment, configmap, secret
+    ├── chatops-bot/        # Incident notifier deployment, configmap, secret
     ├── kafka/              # Strimzi Kafka CRs and topics (single-broker dev setup)
     └── frontend/           # Frontend deployment, service
 ```

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatops-bot-config
+  namespace: {{ .Values.namespace }}
+data:
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
+  KAFKA_INCIDENTS_TOPIC: {{ .Values.kafka.topics.incidents | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.chatopsBot.consumerGroup | quote }}
+  KAFKA_AUTO_OFFSET_RESET: {{ .Values.kafka.autoOffsetReset | quote }}
+  DASHBOARD_URL: {{ .Values.chatopsBot.dashboardUrl | quote }}

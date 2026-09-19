@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-engine
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.aiEngine.replicas }}
+  selector:
+    matchLabels:
+      app: ai-engine
+  template:
+    metadata:
+      labels:
+        app: ai-engine
+    spec:
+      containers:
+        - name: ai-engine
+          image: {{ .Values.aiEngine.image.repository }}:{{ .Values.aiEngine.image.tag }}
+          ports:
+            - containerPort: {{ .Values.aiEngine.metricsPort }}
+              name: metrics
+          envFrom:
+            - secretRef:
+                name: ai-engine-secret
+            - configMapRef:
+                name: ai-engine-config
+          resources:
+            requests:
+              cpu: {{ .Values.aiEngine.resources.requests.cpu }}
+              memory: {{ .Values.aiEngine.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.aiEngine.resources.limits.cpu }}
+              memory: {{ .Values.aiEngine.resources.limits.memory }}

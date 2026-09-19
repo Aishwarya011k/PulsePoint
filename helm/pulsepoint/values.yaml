@@ -67,6 +67,46 @@ checksConsumer:
       cpu: 300m
       memory: 256Mi
 
+aiEngine:
+  image:
+    repository: pulsepoint/ai-engine
+    tag: local
+  replicas: 1
+  metricsPort: 9002
+  consumerGroup: pulsepoint-ai-engine
+  lokiUrl: http://loki.monitoring.svc.cluster.local:3100
+  dashboardUrl: http://localhost:30080
+  anomalyCooldownSeconds: 900
+  latencyZscore: 2.0
+  failureRateThreshold: 0.3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 192Mi
+  secrets:
+    anthropicApiKey: ""
+
+chatopsBot:
+  image:
+    repository: pulsepoint/chatops-bot
+    tag: local
+  replicas: 1
+  metricsPort: 9003
+  consumerGroup: pulsepoint-chatops
+  dashboardUrl: http://localhost:30080
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 150m
+      memory: 128Mi
+  secrets:
+    slackWebhookUrl: ""
+
 kafka:
   enabled: true
   clusterName: pulsepoint-kafka

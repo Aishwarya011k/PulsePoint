@@ -35,6 +35,24 @@ checksConsumer:
       cpu: 100m
       memory: 128Mi
 
+aiEngine:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+chatopsBot:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+
 frontend:
   replicas: 1
   resources:
