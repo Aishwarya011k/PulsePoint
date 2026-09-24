@@ -15,11 +15,11 @@ from app.models import Check, Group, Incident, IncidentStatus, Target, User
 from app.schemas import (
     CheckHistoryResponse,
     CheckResponse,
+    IncidentResponse,
     TargetCreateRequest,
     TargetDetailResponse,
     TargetResponse,
     TargetUpdateRequest,
-    IncidentResponse,
 )
 
 router = APIRouter(prefix="/targets", tags=["targets"])
