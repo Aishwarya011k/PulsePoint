@@ -1,4 +1,5 @@
-import { TargetDetail, Check } from '../types'
+import { useState } from 'react'
+import { TargetDetail, Check, Group } from '../types'
 
 interface TargetDetailViewProps {
   target: TargetDetail
@@ -6,6 +7,10 @@ interface TargetDetailViewProps {
   onManualCheck: (id: number) => void
   isDeleting: boolean
   isChecking: boolean
+  groups: Group[]
+  onGroupChange: (targetId: number, groupId: number | null) => void
+  onPostmortem: (incidentId: number, note: string) => void
+  isSavingPostmortem: boolean
 }
 
 export default function TargetDetailView({
@@ -14,6 +19,10 @@ export default function TargetDetailView({
   onManualCheck,
   isDeleting,
   isChecking,
+  groups,
+  onGroupChange,
+  onPostmortem,
+  isSavingPostmortem,
 }: TargetDetailViewProps) {
   const getStatusColor = (check: Check) => {
     return check.success
@@ -34,6 +43,10 @@ export default function TargetDetailView({
         <div className="text-sm text-gray-500 mt-2">
           Check interval: every {target.check_interval_seconds} seconds
         </div>
+        <select value={target.group_id ?? ''} onChange={(e) => onGroupChange(target.id, e.target.value ? Number(e.target.value) : null)} className="mt-3 px-3 py-2 border rounded bg-white text-sm">
+          <option value="">Ungrouped</option>
+          {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+        </select>
       </div>
 
       {/* Status Summary */}
@@ -149,6 +162,25 @@ export default function TargetDetailView({
           </div>
         )}
       </div>
+
+      <div className="mt-8">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Incident History</h3>
+        {target.incidents.length === 0 ? <p className="text-gray-500">No incidents recorded.</p> : target.incidents.map((incident) => (
+          <IncidentRow key={incident.id} incident={incident} onSave={onPostmortem} isSaving={isSavingPostmortem} />
+        ))}
+      </div>
     </div>
   )
+}
+
+function IncidentRow({ incident, onSave, isSaving }: { incident: TargetDetail['incidents'][number]; onSave: (id: number, note: string) => void; isSaving: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const [note, setNote] = useState(incident.postmortem_note ?? '')
+  return <div className="border rounded p-4 mb-3">
+    <div className="flex justify-between text-sm text-gray-700">
+      <span>{new Date(incident.started_at).toLocaleString()}</span>
+      <span className={incident.status === 'resolved' ? 'text-green-700' : 'text-red-700'}>{incident.status}</span>
+    </div>
+    {incident.postmortem_note && !editing ? <div className="mt-3 bg-amber-50 p-3 text-sm"><span title="Documented">📝</span> {incident.postmortem_note} <button className="ml-2 text-blue-600" onClick={() => setEditing(true)}>Edit</button></div> : incident.status === 'resolved' && <div className="mt-3"><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Postmortem note" className="w-full border rounded p-2 text-sm" rows={3} /><button disabled={isSaving || !note.trim()} onClick={() => { onSave(incident.id, note); setEditing(false) }} className="mt-2 bg-blue-500 text-white px-3 py-1 rounded text-sm">{isSaving ? 'Saving...' : incident.postmortem_note ? 'Save' : 'Add postmortem'}</button></div>}
+  </div>
 }
