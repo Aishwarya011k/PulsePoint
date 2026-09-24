@@ -9,9 +9,9 @@ from app.database import Base, engine
 from app.metrics import REQUEST_LATENCY, REQUESTS, metrics_app
 from app.models import Group
 from app.routes_auth import router as auth_router
-from app.routes_internal import router as internal_router
 from app.routes_groups import router as groups_router
 from app.routes_incidents import router as incidents_router
+from app.routes_internal import router as internal_router
 from app.routes_targets import router as targets_router
 from app.websocket_manager import manager
 

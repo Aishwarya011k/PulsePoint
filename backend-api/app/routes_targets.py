@@ -5,7 +5,7 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import desc, func
+from sqlalchemy import Integer, desc, func
 from sqlalchemy.orm import Session
 
 from app.cache import cache_delete, cache_get, cache_set
