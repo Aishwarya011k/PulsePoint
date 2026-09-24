@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.cache import cache_delete, cache_get, cache_set
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Check, Incident, IncidentStatus, Target, User, Group
+from app.models import Check, Group, Incident, IncidentStatus, Target, User
 from app.schemas import (
     CheckHistoryResponse,
     CheckResponse,
