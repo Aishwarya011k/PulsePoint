@@ -5,19 +5,21 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.cache import cache_delete, cache_get, cache_set
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Check, Incident, IncidentStatus, Target, User
+from app.models import Check, Incident, IncidentStatus, Target, User, Group
 from app.schemas import (
     CheckHistoryResponse,
     CheckResponse,
     TargetCreateRequest,
     TargetDetailResponse,
     TargetResponse,
+    TargetUpdateRequest,
+    IncidentResponse,
 )
 
 router = APIRouter(prefix="/targets", tags=["targets"])
@@ -116,18 +118,24 @@ def create_target(
     Returns:
         Created target
     """
+    if request.group_id is not None:
+        group = db.query(Group).filter(Group.id == request.group_id, Group.user_id == current_user.id).first()
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
     new_target = Target(
         user_id=current_user.id,
         name=request.name,
         url=request.url,
         check_interval_seconds=request.check_interval_seconds,
+        group_id=request.group_id,
     )
     db.add(new_target)
     db.commit()
     db.refresh(new_target)
     
     # Invalidate targets list cache for this user
-    cache_delete(f"targets:user:{current_user.id}")
+    cache_delete(f"targets:user:{current_user.id}:group:all")
     
     return new_target
 
@@ -137,6 +145,7 @@ def list_targets(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
     response: Response,
+    group_id: int | None = Query(None),
 ):
     """
     List all targets for the current user.
@@ -152,7 +161,7 @@ def list_targets(
     Returns:
         List of user's targets
     """
-    cache_key = f"targets:user:{current_user.id}"
+    cache_key = f"targets:user:{current_user.id}:group:{group_id or 'all'}"
     
     # Try to get from cache first
     cached_targets = cache_get(cache_key)
@@ -161,13 +170,47 @@ def list_targets(
         return cached_targets
     
     # Cache miss - query database
-    targets = db.query(Target).filter(Target.user_id == current_user.id).all()
+    query = db.query(Target).filter(Target.user_id == current_user.id)
+    if group_id is not None:
+        group = db.query(Group).filter(Group.id == group_id, Group.user_id == current_user.id).first()
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        query = query.filter(Target.group_id == group_id)
+    targets = query.all()
+    uptime_rows = db.query(Check.target_id, func.avg(Check.success.cast(Integer))).filter(
+        Check.target_id.in_([target.id for target in targets])
+    ).group_by(Check.target_id).all() if targets else []
+    uptime_by_target = {target_id: round(float(uptime) * 100, 1) for target_id, uptime in uptime_rows}
+    for target in targets:
+        target.uptime_percentage = uptime_by_target.get(target.id)
     response.headers["X-Cache"] = "MISS"
     
     # Store in cache with 10-second TTL
     cache_set(cache_key, targets, ttl=10)
     
     return targets
+
+
+@router.patch("/{target_id}", response_model=TargetResponse)
+def update_target(
+    target_id: int,
+    request: TargetUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    target = db.query(Target).filter(Target.id == target_id, Target.user_id == current_user.id).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found")
+    if request.group_id is not None:
+        group = db.query(Group).filter(Group.id == request.group_id, Group.user_id == current_user.id).first()
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    target.group_id = request.group_id
+    db.commit()
+    db.refresh(target)
+    cache_delete(f"target:{target_id}:user:{current_user.id}")
+    cache_delete(f"targets:user:{current_user.id}:group:all")
+    return target
 
 
 @router.get("/{target_id}", response_model=TargetDetailResponse)
@@ -220,6 +263,9 @@ def get_target(
         check_interval_seconds=target.check_interval_seconds,
         created_at=target.created_at,
         recent_checks=recent_checks,
+        group_id=target.group_id,
+        group=target.group,
+        incidents=db.query(Incident).filter(Incident.target_id == target_id).order_by(desc(Incident.started_at)).all(),
     )
     
     response.headers["X-Cache"] = "MISS"
@@ -260,6 +306,7 @@ def delete_target(
     # Invalidate both the specific target cache and the user's targets list cache
     cache_delete(f"target:{target_id}:user:{current_user.id}")
     cache_delete(f"targets:user:{current_user.id}")
+    cache_delete(f"targets:user:{current_user.id}:group:all")
 
 
 @router.post("/{target_id}/check-now", response_model=CheckResponse)
@@ -298,6 +345,48 @@ def manual_check(
     cache_delete(f"target:{target_id}:user:{current_user.id}")
     
     return new_check
+
+
+@router.get("/{target_id}/incidents", response_model=list[IncidentResponse])
+def list_incidents(
+    target_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    target = db.query(Target).filter(Target.id == target_id, Target.user_id == current_user.id).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target not found")
+    incidents = db.query(Incident).filter(Incident.target_id == target_id).order_by(desc(Incident.started_at)).all()
+    for incident in incidents:
+        incident.has_postmortem = bool(incident.postmortem_note)
+    return incidents
+
+
+@router.patch("/{target_id}/incidents/{incident_id}/postmortem", response_model=IncidentResponse)
+def update_postmortem(
+    target_id: int,
+    incident_id: int,
+    request: dict,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    target = db.query(Target).filter(Target.id == target_id, Target.user_id == current_user.id).first()
+    incident = db.query(Incident).filter(Incident.id == incident_id, Incident.target_id == target_id).first()
+    if not target or not incident:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
+    if incident.status != IncidentStatus.RESOLVED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Postmortems require a resolved incident")
+    note = request.get("note")
+    if not isinstance(note, str) or not note.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Note is required")
+    incident.postmortem_note = note.strip()
+    incident.postmortem_author = current_user.email
+    incident.postmortem_updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(incident)
+    cache_delete(f"target:{target_id}:user:{current_user.id}")
+    incident.has_postmortem = True
+    return incident
 
 
 @router.get("/{target_id}/checks", response_model=CheckHistoryResponse)
