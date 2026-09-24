@@ -10,7 +10,7 @@ import pytest
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
-from app.models import User
+from app.models import Group, Target, User
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -210,3 +210,53 @@ def test_unauthorized_access():
     """Test accessing endpoints without authentication."""
     response = client.get("/targets")
     assert response.status_code == 403
+
+
+def test_group_targets_and_delete_group_ungroups_targets():
+    """Groups can be assigned to targets and deleted without deleting targets."""
+    token = client.post(
+        "/auth/register",
+        json={"email": "groups@example.com", "password": "password123"},
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    group = client.post("/groups", json={"name": "Production", "color": "#22c55e"}, headers=headers)
+    assert group.status_code == 200
+    group_id = group.json()["id"]
+    target = client.post(
+        "/targets",
+        json={"name": "API", "url": "https://example.com", "group_id": group_id},
+        headers=headers,
+    )
+    assert target.status_code == 200
+    target_id = target.json()["id"]
+    assert target.json()["group_id"] == group_id
+
+    assert client.delete(f"/groups/{group_id}", headers=headers).status_code == 204
+    target_after_delete = client.get(f"/targets/{target_id}", headers=headers)
+    assert target_after_delete.status_code == 200
+    assert target_after_delete.json()["group_id"] is None
+
+
+def test_postmortem_requires_resolved_incident(test_db, test_user):
+    """Open incidents cannot receive postmortem notes."""
+    target = Target(user_id=test_user.id, name="API", url="https://example.com")
+    test_db.add(target)
+    test_db.commit()
+    test_db.refresh(target)
+    token = client.post(
+        "/auth/login",
+        json={"email": test_user.email, "password": "testpassword123"},
+    ).json()["access_token"]
+
+    from app.models import Incident, IncidentStatus
+    incident = Incident(target_id=target.id, status=IncidentStatus.OPEN)
+    test_db.add(incident)
+    test_db.commit()
+    test_db.refresh(incident)
+    response = client.patch(
+        f"/incidents/{incident.id}/postmortem",
+        json={"note": "Investigation notes"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400
