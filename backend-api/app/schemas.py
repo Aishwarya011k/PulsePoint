@@ -35,6 +35,27 @@ class TargetCreateRequest(BaseModel):
     name: str
     url: str
     check_interval_seconds: int = 300
+    group_id: int | None = None
+
+
+class GroupResponse(BaseModel):
+    id: int
+    name: str
+    color: str | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class GroupCreateRequest(BaseModel):
+    name: str
+    color: str | None = None
+
+
+class GroupUpdateRequest(BaseModel):
+    name: str | None = None
+    color: str | None = None
 
 
 class TargetResponse(BaseModel):
@@ -45,6 +66,9 @@ class TargetResponse(BaseModel):
     url: str
     check_interval_seconds: int
     created_at: datetime
+    group_id: int | None = None
+    group: GroupResponse | None = None
+    uptime_percentage: float | None = None
 
     class Config:
         from_attributes = True
@@ -81,6 +105,15 @@ class TargetDetailResponse(TargetResponse):
     recent_checks: list["CheckResponse"] = []
     is_public: bool = False
     public_slug: str | None = None
+    incidents: list["IncidentResponse"] = []
+
+
+class TargetUpdateRequest(BaseModel):
+    group_id: int | None = None
+
+
+class PostmortemUpdateRequest(BaseModel):
+    note: str
 
 
 class TargetPublicUpdateRequest(BaseModel):
@@ -142,6 +175,10 @@ class IncidentResponse(BaseModel):
     started_at: datetime
     resolved_at: datetime | None = None
     summary: str | None = None
+    postmortem_note: str | None = None
+    postmortem_author: str | None = None
+    postmortem_updated_at: datetime | None = None
+    has_postmortem: bool = False
 
     class Config:
         from_attributes = True

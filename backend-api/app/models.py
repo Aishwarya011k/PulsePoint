@@ -29,6 +29,21 @@ class User(Base):
     
     # Relationships
     targets = relationship("Target", back_populates="user", cascade="all, delete-orphan")
+    groups = relationship("Group", back_populates="user", cascade="all, delete-orphan")
+
+
+class Group(Base):
+    """Flat grouping for a user's monitored targets."""
+    __tablename__ = "groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    color = Column(String(32), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="groups")
+    targets = relationship("Target", back_populates="group")
 
 
 class Target(Base):
@@ -37,6 +52,7 @@ class Target(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     name = Column(String(255), nullable=False)
     url = Column(String(2048), nullable=False)
     check_interval_seconds = Column(Integer, default=300, nullable=False)
@@ -46,6 +62,7 @@ class Target(Base):
     
     # Relationships
     user = relationship("User", back_populates="targets")
+    group = relationship("Group", back_populates="targets")
     checks = relationship("Check", back_populates="target", cascade="all, delete-orphan")
     incidents = relationship("Incident", back_populates="target", cascade="all, delete-orphan")
 
@@ -81,6 +98,13 @@ class Incident(Base):
     started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     resolved_at = Column(DateTime, nullable=True)
     summary = Column(Text, nullable=True)  # Reserved for AI-generated explanation in Phase 8
+    postmortem_note = Column(Text, nullable=True)
+    postmortem_author = Column(String(255), nullable=True)
+    postmortem_updated_at = Column(DateTime, nullable=True)
     
     # Relationships
     target = relationship("Target", back_populates="incidents")
+
+    @property
+    def has_postmortem(self):
+        return bool(self.postmortem_note)

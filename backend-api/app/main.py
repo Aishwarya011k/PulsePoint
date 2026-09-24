@@ -7,14 +7,20 @@ from sqlalchemy import inspect, text
 
 from app.database import Base, engine
 from app.metrics import REQUEST_LATENCY, REQUESTS, metrics_app
+from app.models import Group
 from app.routes_auth import router as auth_router
 from app.routes_internal import router as internal_router
+from app.routes_groups import router as groups_router
+from app.routes_incidents import router as incidents_router
 from app.routes_targets import router as targets_router
 from app.websocket_manager import manager
 
 
 def run_startup_migrations():
     inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if 'groups' not in table_names:
+        Group.__table__.create(bind=engine)
     if 'targets' in inspector.get_table_names():
         columns = [col['name'] for col in inspector.get_columns('targets')]
         with engine.begin() as conn:
@@ -22,6 +28,17 @@ def run_startup_migrations():
                 conn.execute(text("ALTER TABLE targets ADD COLUMN public_slug VARCHAR(128) UNIQUE"))
             if 'is_public' not in columns:
                 conn.execute(text("ALTER TABLE targets ADD COLUMN is_public BOOLEAN DEFAULT FALSE NOT NULL"))
+            if 'group_id' not in columns:
+                conn.execute(text("ALTER TABLE targets ADD COLUMN group_id INTEGER REFERENCES groups(id)"))
+    if 'incidents' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('incidents')]
+        with engine.begin() as conn:
+            if 'postmortem_note' not in columns:
+                conn.execute(text("ALTER TABLE incidents ADD COLUMN postmortem_note TEXT"))
+            if 'postmortem_author' not in columns:
+                conn.execute(text("ALTER TABLE incidents ADD COLUMN postmortem_author VARCHAR(255)"))
+            if 'postmortem_updated_at' not in columns:
+                conn.execute(text("ALTER TABLE incidents ADD COLUMN postmortem_updated_at DATETIME"))
 
 # Create database tables and run lightweight migrations
 Base.metadata.create_all(bind=engine)
@@ -56,6 +73,8 @@ async def observe_requests(request, call_next):
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(groups_router)
+app.include_router(incidents_router)
 app.include_router(targets_router)
 app.include_router(internal_router)
 app.mount("/metrics", metrics_app())
